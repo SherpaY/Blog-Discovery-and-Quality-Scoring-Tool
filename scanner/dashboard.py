@@ -44,6 +44,42 @@ def _public_config(cfg: dict) -> dict:
     }
 
 
+def scan_payload(storage: Storage, scan: dict) -> tuple[dict, dict]:
+    """(index entry, full payload) for one scan - the format the dashboard reads."""
+    rows = [{k: v for k, v in r.items() if not k.startswith("_")} for r in storage.articles_for_scan(scan["id"])]
+    summary = scan.get("summary") or {}
+    entry = {
+        "file": f"scans/{_scan_file_id(scan)}.json",
+        "scan_id": scan["id"],
+        "started_at": scan["started_at"],
+        "finished_at": scan.get("finished_at"),
+        "status": scan["status"],
+        "trigger": scan.get("trigger"),
+        "window_hours": scan.get("window_hours"),
+        "results": summary.get("results", {}),
+        "settings": _public_config(scan.get("config") or {}),
+    }
+    disc = summary.get("discovery", {})
+    payload = {
+        **entry,
+        "message": scan.get("message"),
+        "discovery": {
+            "total_urls_found": disc.get("total_urls_found"),
+            "unique_urls": disc.get("unique_urls"),
+            "queued_for_processing": disc.get("queued_for_processing"),
+            "rejected_before_fetch": disc.get("rejected_before_fetch", {}),
+            "search_sources": disc.get("search_sources", []),
+            "methods": {k: {"name": m.get("name"), "enabled": m.get("enabled"), "ok": m.get("ok"),
+                            "found": m.get("found"), "messages": (m.get("messages") or [])[-15:]}
+                        for k, m in (disc.get("methods") or {}).items()},
+            "queries": disc.get("queries", []),
+            "suggested_phrases_from_titles": disc.get("suggested_phrases_from_titles", []),
+        },
+        "rows": [{c: r.get(c, "") for c in ALL_COLUMNS} for r in rows],
+    }
+    return entry, payload
+
+
 def publish(db_path: str | Path, out_dir: str | Path | None = None, keep: int = 30) -> dict:
     """Write the newest `keep` finished scans from the database as dashboard JSON.
 
@@ -59,37 +95,7 @@ def publish(db_path: str | Path, out_dir: str | Path | None = None, keep: int = 
         for scan in storage.list_scans(keep):
             if scan["status"] == "running":
                 continue
-            rows = [{k: v for k, v in r.items() if not k.startswith("_")} for r in storage.articles_for_scan(scan["id"])]
-            summary = scan.get("summary") or {}
-            entry = {
-                "file": f"scans/{_scan_file_id(scan)}.json",
-                "scan_id": scan["id"],
-                "started_at": scan["started_at"],
-                "finished_at": scan.get("finished_at"),
-                "status": scan["status"],
-                "trigger": scan.get("trigger"),
-                "window_hours": scan.get("window_hours"),
-                "results": summary.get("results", {}),
-                "settings": _public_config(scan.get("config") or {}),
-            }
-            disc = summary.get("discovery", {})
-            payload = {
-                **entry,
-                "message": scan.get("message"),
-                "discovery": {
-                    "total_urls_found": disc.get("total_urls_found"),
-                    "unique_urls": disc.get("unique_urls"),
-                    "queued_for_processing": disc.get("queued_for_processing"),
-                    "rejected_before_fetch": disc.get("rejected_before_fetch", {}),
-                    "search_sources": disc.get("search_sources", []),
-                    "methods": {k: {"name": m.get("name"), "enabled": m.get("enabled"), "ok": m.get("ok"),
-                                    "found": m.get("found"), "messages": (m.get("messages") or [])[-15:]}
-                                for k, m in (disc.get("methods") or {}).items()},
-                    "queries": disc.get("queries", []),
-                    "suggested_phrases_from_titles": disc.get("suggested_phrases_from_titles", []),
-                },
-                "rows": [{c: r.get(c, "") for c in ALL_COLUMNS} for r in rows],
-            }
+            entry, payload = scan_payload(storage, scan)
             (out / entry["file"]).write_text(json.dumps(payload, default=str, ensure_ascii=False))
             written.append(entry)
     finally:

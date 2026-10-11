@@ -22,9 +22,37 @@
 </header>
 
 <main class="wrap">
+  <section class="card search" id="searchPanel" aria-labelledby="searchTitle">
+    <h2 id="searchTitle">Run a search</h2>
+    <form id="searchForm" novalidate>
+      <div class="search-grid">
+        <label class="wide">Keywords <span class="muted">(one per line or comma-separated, up to 5)</span>
+          <textarea id="sKeywords" rows="2" required placeholder="technical seo&#10;content marketing"></textarea>
+        </label>
+        <label class="wide">Competitor sites <span class="muted">(optional, up to 3)</span>
+          <textarea id="sDomains" rows="2" placeholder="example.com/blog"></textarea>
+        </label>
+        <label>Published in the last
+          <select id="sWindow">
+            <option value="24">24 hours</option>
+            <option value="48">48 hours</option>
+            <option value="72">72 hours</option>
+            <option value="168" selected>7 days</option>
+          </select>
+        </label>
+        <label>Max articles <input type="number" id="sMax" min="5" max="30" value="20"></label>
+        <label id="sCodeWrap" hidden>Access code <input type="password" id="sCode" autocomplete="off"></label>
+        <div class="search-actions">
+          <button type="submit" id="sRun">Run search</button>
+        </div>
+      </div>
+    </form>
+    <p class="muted small" id="sStatus" role="status" aria-live="polite">Searches take 1–4 minutes. Results show here and can be downloaded as CSV; they are not saved for others.</p>
+  </section>
+
   <section id="empty" class="card empty" hidden>
-    <h2>No scan results yet</h2>
-    <p>Results appear here after a scan is published. To run one:</p>
+    <h2>No saved scans yet</h2>
+    <p>Use <b>Run a search</b> above for an instant search. Saved, shared scans appear here after a scheduled scan is published:</p>
     <ol>
       <li>On GitHub, open <b>Actions → Daily blog scan → Run workflow</b> (or wait for the daily run).</li>
       <li>When it finishes, the results are committed to <code>site/data/</code> and this page updates after Vercel redeploys.</li>
@@ -33,6 +61,7 @@
   </section>
 
   <div id="content" hidden>
+    <p class="live-banner" id="liveBanner" hidden></p>
     <section class="settings card" id="settings"></section>
 
     <section class="metrics" id="metrics" aria-label="Scan summary"></section>

@@ -1,5 +1,9 @@
-# Deploy only the static dashboard. Everything else (the Python scanner, app.py,
-# tests, config) runs on your Mac or in GitHub Actions, never on Vercel.
+# Deploy only the dashboard (site/) and the live-search function (api/ + scanner/).
+# The Streamlit app (app.py), tests and local data never go to Vercel.
 /*
 !site
+!api
+!scanner
+!config.yaml
+!requirements.txt
 !vercel.json

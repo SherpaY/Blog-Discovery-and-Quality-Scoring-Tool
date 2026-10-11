@@ -7,6 +7,14 @@
   const $ = (id) => document.getElementById(id);
   const state = { index: null, scan: null, view: "confirmed_recent", sort: { key: "quality_score", asc: true } };
   const OK_EXTRACTION = ["ok", "thin_content"];
+  // Fallbacks so live searches work before any scan has been published.
+  const DEFAULT_VIEWS = {
+    all_articles: "All discovered articles",
+    confirmed_recent: "Confirmed recent articles",
+    low_quality: "Potentially low-quality articles (confirmed recent, below threshold)",
+    needs_date_review: "Articles requiring date verification",
+    failed_extractions: "Failed extractions",
+  };
 
   function el(tag, attrs, ...children) {
     const node = document.createElement(tag);
@@ -95,44 +103,149 @@
   }
 
   async function init() {
+    bindFilters();
+    initSearch();
     try {
       state.index = await getJSON("data/index.json");
     } catch (e) {
       state.index = { scans: [] };
     }
+    const params = new URLSearchParams(location.hash.slice(1));
+    if (params.get("view")) state.view = params.get("view");
     const scans = state.index.scans || [];
-    if (!scans.length) { $("empty").hidden = false; return; }
     const sel = $("scanSelect");
     for (const s of scans) {
       const label = `${fmtLocal(s.started_at)} · ${s.window_hours ? Math.round(s.window_hours) + "h" : "?"} window · ${s.status}` +
         (s.results && s.results.confirmed_recent !== undefined ? ` · ${s.results.confirmed_recent} recent` : "");
       sel.append(el("option", { value: s.file, text: label }));
     }
-    sel.addEventListener("change", () => loadScan(sel.value));
-    const params = new URLSearchParams(location.hash.slice(1));
-    if (params.get("view")) state.view = params.get("view");
-    bindFilters();
+    sel.addEventListener("change", () => (sel.value === "__live__" ? showPayload(state.live) : loadScan(sel.value)));
+    if (!scans.length) { $("empty").hidden = false; sel.closest("label").hidden = true; return; }
     await loadScan(scans[0].file);
   }
 
   async function loadScan(file) {
+    let payload;
     try {
-      state.scan = await getJSON("data/" + file);
+      payload = await getJSON("data/" + file);
     } catch (e) {
       $("empty").hidden = false;
       $("empty").querySelector("h2").textContent = "Could not load scan data: " + e.message;
       return;
     }
+    showPayload(payload);
+  }
+
+  function showPayload(payload) {
+    state.scan = payload;
+    $("empty").hidden = true;
     $("content").hidden = false;
+    const banner = $("liveBanner");
+    if (payload.live) {
+      banner.hidden = false;
+      banner.textContent = `Live search results (${payload.duration_seconds}s)` +
+        (payload.partial ? " – time limit reached, so only the articles processed so far are shown. Narrow the keywords or lower Max articles for a complete run." : ".") +
+        " Not saved: download the CSV to keep or share them.";
+    } else {
+      banner.hidden = true;
+    }
     renderSettings();
     renderMetrics();
     renderReport();
     fillFilterOptions();
     renderViews();
     renderTable();
-    const gen = state.index.generated_at ? ` Data published ${fmtLocal(state.index.generated_at)}.` : "";
-    $("footnote").textContent = `Scan #${state.scan.scan_id} (${state.scan.trigger || "manual"}), started ${fmtLocal(state.scan.started_at)}.` +
+    const gen = !payload.live && state.index && state.index.generated_at ? ` Data published ${fmtLocal(state.index.generated_at)}.` : "";
+    $("footnote").textContent = `${payload.live ? "Live search" : "Scan #" + payload.scan_id} (${payload.trigger || "manual"}), started ${fmtLocal(payload.started_at)}.` +
       gen + " Times are shown in your browser's local timezone; CSV downloads use UTC.";
+  }
+
+  // ------------------------------------------------------------------ live search
+  const STORE_KEY = "bqs.search";
+
+  function remember(values) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(values)); } catch (e) { /* storage unavailable */ }
+  }
+
+  function recall() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); } catch (e) { return {}; }
+  }
+
+  function setStatus(text, isError) {
+    const s = $("sStatus");
+    s.textContent = text;
+    s.classList.toggle("error", Boolean(isError));
+  }
+
+  async function initSearch() {
+    const saved = recall();
+    if (saved.keywords) $("sKeywords").value = saved.keywords;
+    if (saved.domains) $("sDomains").value = saved.domains;
+    if (saved.window) $("sWindow").value = saved.window;
+    if (saved.max) $("sMax").value = saved.max;
+    $("searchForm").addEventListener("submit", runSearch);
+    try {
+      const info = await getJSON("api/scan");
+      state.api = info;
+      $("sCodeWrap").hidden = !info.access_code_required;
+    } catch (e) {
+      state.api = null;
+      $("sRun").disabled = true;
+      setStatus("Live search is not available on this deployment (the /api/scan function is missing). " +
+        "Saved scans below still work.", true);
+    }
+  }
+
+  async function runSearch(ev) {
+    ev.preventDefault();
+    const split = (v) => v.split(/[\n,]/).map((x) => x.trim()).filter(Boolean);
+    const keywords = split($("sKeywords").value);
+    const domains = split($("sDomains").value);
+    if (!keywords.length) { setStatus("Enter at least one keyword.", true); $("sKeywords").focus(); return; }
+    const body = {
+      keywords, competitor_domains: domains,
+      window_hours: Number($("sWindow").value), max_urls: Number($("sMax").value) || 20,
+      access_code: $("sCode").value || undefined,
+    };
+    remember({ keywords: $("sKeywords").value, domains: $("sDomains").value, window: $("sWindow").value, max: $("sMax").value });
+    const btn = $("sRun");
+    btn.disabled = true;
+    btn.textContent = "Searching…";
+    const started = Date.now();
+    const tick = setInterval(() => {
+      const s = Math.round((Date.now() - started) / 1000);
+      setStatus(`Searching free sources, then checking dates and scoring each article… ${s}s (usually 1–4 minutes; keep this tab open).`);
+    }, 1000);
+    try {
+      const res = await fetch("api/scan", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), cache: "no-store",
+      });
+      let data = null;
+      try { data = await res.json(); } catch (e) { data = null; }
+      if (!res.ok) {
+        const msg = (data && data.error) || (res.status === 504 ? "the search took longer than Vercel allows (5 minutes) – try fewer keywords or a lower Max articles" : `HTTP ${res.status}`);
+        throw new Error(msg);
+      }
+      state.live = data;
+      const sel = $("scanSelect");
+      let opt = sel.querySelector('option[value="__live__"]');
+      if (!opt) { opt = el("option", { value: "__live__" }); sel.prepend(opt); }
+      opt.textContent = `Live search: ${keywords.join(", ")} (not saved)`;
+      sel.value = "__live__";
+      sel.closest("label").hidden = false;
+      state.view = "confirmed_recent";
+      showPayload(data);
+      const r = data.results || {};
+      setStatus(`Done in ${data.duration_seconds}s: ${r.confirmed_recent ?? 0} confirmed recent, ${r.flagged_low_quality ?? 0} flagged low quality, ` +
+        `${r.needs_date_review ?? 0} need date review. Open "Discovery report" to see which sources worked.`);
+      $("content").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {
+      setStatus("Search failed: " + e.message, true);
+    } finally {
+      clearInterval(tick);
+      btn.disabled = false;
+      btn.textContent = "Run search";
+    }
   }
 
   // ------------------------------------------------------------------ header sections
@@ -192,7 +305,7 @@
   }
 
   function renderViews() {
-    const views = state.index.views || {};
+    const views = (state.index && state.index.views) || DEFAULT_VIEWS;
     const rows = state.scan.rows || [];
     const nav = $("views");
     nav.replaceChildren(...Object.entries(views).map(([key, label]) => el("button", {
@@ -300,7 +413,7 @@
 
   // ------------------------------------------------------------------ detail dialog
   function openDetail(r) {
-    const crit = (state.index.criteria || ["originality", "depth", "evidence", "usefulness", "readability"]);
+    const crit = (state.index && state.index.criteria) || ["originality", "depth", "evidence", "usefulness", "readability"];
     const signals = String(r.quality_signals || "").split("; ").filter(Boolean);
     const body = $("detailBody");
     body.replaceChildren(
@@ -365,10 +478,10 @@
   }
 
   function downloadCSV(rows, name) {
-    const cols = state.index.columns || Object.keys(rows[0] || {});
+    const cols = (state.index && state.index.columns) || state.scan.columns || Object.keys(rows[0] || {});
     const lines = [cols.join(",")].concat(rows.map((r) => cols.map((c) => csvCell(r[c])).join(",")));
     const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
-    const a = el("a", { href: URL.createObjectURL(blob), download: `${name}_scan${state.scan.scan_id}_${(state.scan.started_at || "").slice(0, 10)}.csv` });
+    const a = el("a", { href: URL.createObjectURL(blob), download: `${name}_${state.scan.live ? "live" : "scan" + state.scan.scan_id}_${(state.scan.started_at || "").slice(0, 10)}.csv` });
     document.body.append(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);

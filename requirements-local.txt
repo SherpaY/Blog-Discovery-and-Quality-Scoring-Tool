@@ -1,0 +1,6 @@
+# Everything for running on your Mac: core scanner + local web app + TF-IDF similarity + tests.
+-r requirements.txt
+streamlit>=1.35
+pandas>=2.0
+scikit-learn>=1.3
+pytest>=8.0

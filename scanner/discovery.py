@@ -117,8 +117,12 @@ def resolve_unresolved(fetcher: Fetcher, items: list[DiscoveredItem], window_sta
 
 
 def run_discovery(config: dict, fetcher: Fetcher, now: datetime, storage=None,
-                  progress: Callable[[str], None] | None = None) -> DiscoveryReport:
+                  progress: Callable[[str], None] | None = None,
+                  should_stop: Callable[[], bool] | None = None) -> DiscoveryReport:
+    """should_stop: checked between feeds/domains/queries; when it returns True the
+    remaining discovery work is skipped (used by the time-limited live search)."""
     progress = progress or (lambda msg: None)
+    should_stop = should_stop or (lambda: False)
     disc = config.get("discovery") or {}
     methods = disc.get("methods") or {}
     window_hours = float(disc.get("window_hours", 168))
@@ -141,6 +145,7 @@ def run_discovery(config: dict, fetcher: Fetcher, now: datetime, storage=None,
                 fetcher, disc.get("search_sources") or {}, report.queries, window_hours,
                 max_queries=int(disc.get("max_search_queries", 6)),
                 delay_seconds=float(disc.get("search_delay_seconds", 5)),
+                should_stop=should_stop,
             )
             report.search_statuses = statuses
             rep.messages.extend(msgs)
@@ -164,6 +169,9 @@ def run_discovery(config: dict, fetcher: Fetcher, now: datetime, storage=None,
     rep = report.methods.setdefault("rss", MethodReport("RSS/Atom feeds (A)", bool(methods.get("rss"))))
     if rep.enabled:
         for feed in disc.get("feeds") or []:
+            if should_stop():
+                rep.messages.append("time budget reached; remaining feeds skipped")
+                break
             progress(f"Reading feed {feed}")
 
             def _feed(feed=feed):
@@ -175,7 +183,7 @@ def run_discovery(config: dict, fetcher: Fetcher, now: datetime, storage=None,
 
     # ---- Method B: configured sitemaps
     rep = report.methods.setdefault("sitemap", MethodReport("XML sitemaps (B)", bool(methods.get("sitemap"))))
-    if rep.enabled and disc.get("sitemaps"):
+    if rep.enabled and disc.get("sitemaps") and not should_stop():
         progress("Reading configured sitemaps")
 
         def _sitemaps():
@@ -192,6 +200,9 @@ def run_discovery(config: dict, fetcher: Fetcher, now: datetime, storage=None,
             base = domain_to_base_url(domain)
             if not base:
                 continue
+            if should_stop():
+                rep.messages.append(f"time budget reached; {domain} and later domains skipped")
+                break
             progress(f"Discovering feeds and sitemaps for {domain}")
 
             def _domain(base=base, domain=domain):

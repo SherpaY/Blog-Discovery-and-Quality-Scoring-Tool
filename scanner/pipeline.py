@@ -146,8 +146,14 @@ def search_position_fields(current: list[dict], history: list[dict], per_page: i
 
 class ScanRunner:
     def __init__(self, config: dict, session=None, resolver=None, now: datetime | None = None,
-                 progress: Callable[[dict], None] | None = None, db_path: str | Path | None = None):
+                 progress: Callable[[dict], None] | None = None, db_path: str | Path | None = None,
+                 deadline: float | None = None, discovery_deadline: float | None = None):
+        """deadline / discovery_deadline: time.monotonic() values after which the scan stops
+        (used by the time-limited live search); results gathered so far are still scored."""
         self.config = config
+        self.deadline = deadline
+        self.discovery_deadline = discovery_deadline
+        self.time_limited = False  # set when a deadline cut discovery or extraction short
         self.data_dir = resolve_path(config, "data_dir")
         self.output_dir = resolve_path(config, "output_dir")
         self.fixed_now = now
@@ -168,7 +174,16 @@ class ScanRunner:
         self.progress_cb(dict(self.status))
 
     def _stop_requested(self) -> bool:
+        if self.deadline is not None and time.monotonic() >= self.deadline:
+            self.time_limited = True
+            return True
         return stop_flag_path(self.config).exists()
+
+    def _discovery_over(self) -> bool:
+        if self.discovery_deadline is not None and time.monotonic() >= self.discovery_deadline:
+            self.time_limited = True
+            return True
+        return False
 
     # ------------------------------------------------------------------ main entry
     def run(self, trigger: str = "manual", resume: bool = False) -> dict:
@@ -215,7 +230,8 @@ class ScanRunner:
             if not scan or not storage.queue_items(scan_id):
                 self._status(phase="discovery", message="Discovering URLs")
                 report = run_discovery(cfg, fetcher, now, storage=storage,
-                                       progress=lambda m: self._status(message=m))
+                                       progress=lambda m: self._status(message=m),
+                                       should_stop=self._discovery_over)
                 storage.enqueue(scan_id, [(normalize_url(i.url), item_to_dict(i)) for i in report.candidates])
                 summary["discovery"] = {
                     "total_urls_found": report.total_found,
@@ -254,7 +270,10 @@ class ScanRunner:
             self._score_all(storage, scan_id, cfg)
         except StopRequested:
             state = "stopped"
-            message = "Stopped by user; run with --resume (or press Resume) to continue"
+            if self.deadline is not None and time.monotonic() >= self.deadline:
+                message = "Time limit reached; showing the articles processed so far"
+            else:
+                message = "Stopped by user; run with --resume (or press Resume) to continue"
             log.warning(message)
             # Score whatever was extracted so partial exports are still useful.
             try:
@@ -275,6 +294,7 @@ class ScanRunner:
         summary["exports"] = {k: str(v) for k, v in exports.items()}
         summary["requests_made"] = fetcher.request_count
         summary["duration_seconds"] = round(time.time() - started, 1)
+        summary["time_limited"] = self.time_limited
         summary["window"] = {"hours": window_hours, "from_utc": iso(now - timedelta(hours=window_hours)),
                              "to_utc": iso(now)}
         storage.finish_scan(scan_id, "completed" if state == "completed" else state, summary, message)

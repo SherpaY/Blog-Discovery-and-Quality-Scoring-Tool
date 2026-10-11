@@ -64,7 +64,7 @@ source .venv/bin/activate
 
 # 3. Install the free dependencies
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements-local.txt
 
 # 4. Check everything works (no internet needed for the tests)
 python -m pytest
@@ -257,30 +257,41 @@ If you move the project folder or recreate `.venv`, run `schedule install` again
 
 ---
 
-## Sharing with your team (Vercel + GitHub Actions, free)
+## Sharing with your team (Vercel, free)
 
-The scanner can't run *on* Vercel. Vercel only runs short-lived functions, while a scan takes
-minutes and needs saved history. So the work is split:
+The Vercel deployment gives your team one web page with two ways to get results:
+
+1. **Run a search (instant, on demand).** Type keywords (and optionally up to 3 competitor sites),
+   choose 24 h / 48 h / 72 h / 7 days, and press **Run search**. A Vercel function (`api/scan.py`)
+   runs the same scanner with a time budget of about 4 minutes, then shows the results with the same
+   views, filters, explanations and CSV downloads. Limits per search: 5 keywords, 3 competitor sites,
+   30 articles. If the time budget runs out, you get the articles processed so far, clearly marked
+   as partial.
+   Live results are **not saved**, because Vercel's free plan has no permanent storage. Download the
+   CSV to keep or share them.
+2. **Saved daily scans (shared history).** GitHub Actions runs a bigger scan every day (or when you
+   press *Run workflow*), commits the results to `site/data/`, and Vercel redeploys. Everyone sees the
+   same saved scans in the **Scan** dropdown.
 
 ```
-GitHub Actions (daily or on demand)  ──►  runs the scan  ──►  commits results to site/data/
-                                                                   │
-Vercel  ◄──────────── redeploys automatically on every commit ─────┘
-   └── serves site/ : a static dashboard your teammates open in the browser
+Browser ──► Vercel: site/ (dashboard)  ──► POST /api/scan ──► live, time-limited scan ──► results
+                 ▲
+GitHub Actions (daily) ──► full scan ──► commits site/data/ ──► Vercel redeploys (saved history)
 ```
 
-The dashboard shows each scan's settings, summary numbers and source status. It has the same views
-and filters as the local app (domain, keyword, score, word count, publication date, text search),
-clickable article links, a detail popup with every scoring signal and date evidence, and CSV
-downloads (shown rows or flagged only).
+**Protect the search with an access code (recommended).** Anyone with the link could otherwise run
+searches on your free Vercel allowance. In Vercel, open **Settings → Environment Variables**, add
+`SCAN_ACCESS_CODE` with a code of your choice, and redeploy. The form then asks for the code. Share it
+only with teammates.
 
 ### One-time setup
 
-1. **Allow the workflow to commit results.** On GitHub, open **Settings → Actions → General →
-   Workflow permissions** and choose **Read and write permissions**.
+1. **Allow the workflow to commit results** (only needed for saved daily scans). On GitHub, open
+   **Settings → Actions → General → Workflow permissions** and choose **Read and write permissions**.
 2. **Connect Vercel.** In Vercel, open **Add New → Project** and import this repository. Leave the
    framework preset as **Other**. `vercel.json` and `.vercelignore` already tell Vercel to publish
-   only the `site/` folder, so it no longer tries to run `app.py`.
+   the `site/` dashboard plus the `api/scan.py` search function, using only the lean packages in
+   `requirements.txt`. It never tries to run the Streamlit `app.py`.
 3. **Point production at the right branch.** Vercel deploys production from `main` by default. Either
    merge this branch into `main`, or in Vercel open **Settings → Environments → Production → Branch
    Tracking** and enter the branch this code is on. Until then Vercel shows "No Production
@@ -306,6 +317,9 @@ After that it runs every day at 06:17 UTC by itself.
 * **Who can see it:** on Vercel's free plan the production URL is public to anyone who has the link.
   The site tells search engines not to index it. Password-protecting it requires a paid Vercel plan,
   so if results are sensitive, share the link carefully or keep using the local app.
+* **Live search uses Vercel's servers.** Like GitHub's, these are shared cloud addresses, so the same
+  blocking risk applies (next point). Each search shows which sources worked in its *Discovery
+  report*.
 * **Blocking risk:** scans from GitHub run on shared cloud servers, which Google News, Bing and some
   websites block more often than a home connection. The dashboard's *Discovery report* shows exactly
   which sources worked. Running scans on your Mac and publishing from there avoids this.
@@ -448,10 +462,12 @@ Defaults live in `config.yaml`, and your changes from the app are saved to `data
 ```
 app.py                   Streamlit web interface (local)
 site/                    static team dashboard (deployed to Vercel)
+api/scan.py              Vercel function: time-limited live search for the dashboard
 .github/workflows/       daily-scan.yml: scheduled scans on GitHub Actions
 vercel.json, .vercelignore  deploy only site/ to Vercel
 config.yaml              default settings (edit freely)
-requirements.txt
+requirements.txt         core scanner packages (what Vercel installs)
+requirements-local.txt   + Streamlit, pandas, scikit-learn, pytest for your Mac
 scanner/
   cli.py                 command line (python -m scanner ...)
   pipeline.py            scan orchestration, lock, stop/resume, summary
@@ -470,6 +486,7 @@ scanner/
   exporter.py            CSV exports
   scheduler.py           macOS launchd daily job
   dashboard.py           publishes results as JSON for the dashboard
+  live.py                validated, time-limited live search (used by api/scan.py)
   llm_review.py          optional Ollama notes
 tests/                   offline tests with saved HTML/RSS/sitemap fixtures
 scripts/                 start_app.sh, run_scan.sh

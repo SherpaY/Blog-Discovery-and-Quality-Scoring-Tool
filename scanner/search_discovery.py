@@ -253,8 +253,10 @@ def run_search_sources(
     max_queries: int = 6,
     delay_seconds: float = 5.0,
     sleep=time.sleep,
+    should_stop=None,
 ) -> tuple[list[DiscoveredItem], list[SourceStatus], list[str]]:
     """Probe each enabled source with its first query, then run remaining queries."""
+    should_stop = should_stop or (lambda: False)
     items: list[DiscoveredItem] = []
     statuses: list[SourceStatus] = []
     messages: list[str] = []
@@ -269,6 +271,13 @@ def run_search_sources(
         working = True
         count = 0
         for i, query in enumerate(usable):
+            if should_stop():
+                if i == 0:
+                    statuses.append(SourceStatus(source.label, False, "skipped: time budget reached"))
+                    working = False
+                else:
+                    messages.append(f"{source.label}: time budget reached after {i} quer{'y' if i == 1 else 'ies'}")
+                break
             url = source.build_url(query.text, window_hours)
             if not url:
                 continue
