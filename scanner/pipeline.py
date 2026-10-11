@@ -117,6 +117,33 @@ def article_from_dict(d: dict, body_text: str) -> ArticleData:
     return a
 
 
+def search_position_fields(current: list[dict], history: list[dict], per_page: int = 10) -> dict:
+    """Observed positions in relevance-ranked news-search feeds (Google/Bing News RSS).
+
+    These are positions within the feed results at scan time - NOT Google web search
+    rankings, which cannot be obtained free and legitimately (see README).
+    """
+    empty = {"search_position_best": "", "search_position_avg": "", "search_result_page": "",
+             "search_position_observations": 0, "search_position_details": ""}
+    if not current and not history:
+        return empty
+    best = min((r["rank"] for r in current), default=None)
+    all_ranks = [r["rank"] for r in history] or [r["rank"] for r in current]
+    avg = sum(all_ranks) / len(all_ranks)
+    ref = best if best is not None else min(all_ranks)
+    page = (ref - 1) // per_page + 1
+    details = "; ".join(f'{r["source"]} "{r["query"]}" #{r["rank"]} at {r["observed_at"]}' for r in current)
+    if len(history) > len(current):
+        details += f" | {len(history)} observations across scans"
+    return {
+        "search_position_best": best if best is not None else "",
+        "search_position_avg": round(avg, 1),
+        "search_result_page": f"page {page} (positions {(page - 1) * per_page + 1}-{page * per_page}, if 10 per page)",
+        "search_position_observations": len(all_ranks),
+        "search_position_details": details,
+    }
+
+
 class ScanRunner:
     def __init__(self, config: dict, session=None, resolver=None, now: datetime | None = None,
                  progress: Callable[[dict], None] | None = None, db_path: str | Path | None = None):
@@ -215,6 +242,8 @@ class ScanRunner:
                 item = item_from_dict(item_dict)
                 self._status(processed=done_before + i, message=f"Fetching {item.url}")
                 row, article = self._process_item(fetcher, item, now, window_hours, queries, seen_canonicals, storage)
+                storage.add_search_observations(key, scan_id, item.search_ranks)
+                row.update(search_position_fields(item.search_ranks, storage.search_position_history(key)))
                 row["scan_id"] = scan_id
                 row["scan_date"] = iso(now)
                 if article is not None:

@@ -299,6 +299,7 @@ def item_to_dict(item: DiscoveredItem) -> dict:
         "url": item.url, "title": item.title, "summary": item.summary, "discovery_source": item.discovery_source,
         "discovery_query": item.discovery_query, "query_origin": item.query_origin, "user_keyword": item.user_keyword,
         "publisher_url": item.publisher_url,
+        "search_ranks": item.search_ranks,
         "date_evidence": [{"source": e.source, "kind": e.kind, "value": e.value.isoformat(), "raw": e.raw,
                            "tz_assumed": e.tz_assumed, "date_only": e.date_only} for e in item.date_evidence],
     }
@@ -310,7 +311,7 @@ def item_from_dict(d: dict) -> DiscoveredItem:
     item = DiscoveredItem(url=d["url"], title=d.get("title", ""), summary=d.get("summary", ""),
                           discovery_source=d.get("discovery_source", ""), discovery_query=d.get("discovery_query", ""),
                           query_origin=d.get("query_origin", ""), user_keyword=d.get("user_keyword", ""),
-                          publisher_url=d.get("publisher_url", ""))
+                          publisher_url=d.get("publisher_url", ""), search_ranks=list(d.get("search_ranks", [])))
     for e in d.get("date_evidence", []):
         item.date_evidence.append(DateEvidence(source=e["source"], kind=e["kind"],
                                                value=datetime.fromisoformat(e["value"]), raw=e.get("raw", ""),

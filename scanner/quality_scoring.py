@@ -244,11 +244,11 @@ class QualityScorer:
         sim, sim_label = similarity
         if sim >= self.t["near_duplicate_similarity"]:
             sig("originality", "near_duplicate_of_collected_article", 0.6,
-                f"text similarity {sim:.2f} with {sim_label}",
-                "Very similar to another collected article.")
+                f"text similarity/overlap {sim:.2f} with {sim_label} (the tool cannot tell which was published first)",
+                "Very similar to another collected article (could be the original or the copy).")
         elif sim >= self.t["high_similarity"]:
             sig("originality", "highly_similar_to_collected_article", 0.3,
-                f"text similarity {sim:.2f} with {sim_label}",
+                f"text similarity/overlap {sim:.2f} with {sim_label} (the tool cannot tell which was published first)",
                 "Substantially overlaps with another collected article.")
 
         paras = [_norm(p) for p in article.paragraphs + article.list_items if len(p.split()) >= 8]
@@ -296,7 +296,11 @@ class QualityScorer:
         # ------------------------------------------------------------ concrete-detail metrics (used by B & D)
         numbers = len(NUMBER_RE.findall(text))
         units = len(UNIT_RE.findall(text))
-        proper = len(re.findall(r"(?<=[a-z,;:] )[A-Z][a-zA-Z0-9]+(?:\s[A-Z][a-zA-Z0-9]+)*", text))
+        # Distinct named things (products, people, organisations) - repeats don't count, so
+        # repeating a capitalised keyword cannot inflate specificity.
+        kw_lower = {k.lower() for k in (keywords or [])}
+        proper = len({p.lower() for p in re.findall(r"(?<=[a-z,;:] )[A-Z][a-zA-Z0-9]+(?:\s[A-Z][a-zA-Z0-9]+)*", text)
+                      if p.lower() not in kw_lower})
         examples = len(EXAMPLE_MARKERS.findall(text))
         concrete = numbers + units + proper + examples * 2 + article.code_block_count * 3 + article.table_count * 3
         concrete_rate = concrete / max(1, words) * 100
@@ -340,10 +344,10 @@ class QualityScorer:
                 kw_words = [w for w in tokenize(kw) if w not in STOPWORDS]
                 if kw_words and kw.lower() in (article.title or "").lower():
                     mentions = min(body_stems.get(w, 0) for w in kw_words)
-                    if mentions <= 1 and words >= 300:
-                        sig("depth", "topic_barely_covered", 0.15,
-                            f"title targets '{kw}' but body mentions it {mentions} time(s)",
-                            f"Title targets '{kw}' but the body barely covers it.")
+                    if mentions == 0 and words >= 300:
+                        sig("depth", "topic_not_covered_in_body", 0.15,
+                            f"title targets '{kw}' but the body never mentions it",
+                            f"Title targets '{kw}' but the body never discusses it.")
                     break
 
         # ------------------------------------------------------------ C. evidence (scaled by type)
@@ -352,7 +356,7 @@ class QualityScorer:
         markers = len(EVIDENCE_MARKERS.findall(text))
         vague = _count_phrases(lower, VAGUE_CLAIMS)
         vague_n = sum(vague.values())
-        if ext == 0 and words >= 250:
+        if ext == 0 and words >= 150:
             sig("evidence", "no_external_sources", 0.5 * imp,
                 f"0 outbound links to other sites (evidence importance for {atype}: {imp})",
                 "No external sources linked.")
@@ -365,7 +369,7 @@ class QualityScorer:
             sig("evidence", "unsupported_broad_claims", min(0.4, 0.15 * vague_n) * max(imp, 0.5),
                 f"{vague_n} broad claims ({', '.join(vague)}) with {ext} outbound link(s)",
                 "Broad claims with limited evidence.")
-        if markers + units == 0 and words >= 300:
+        if markers + units == 0 and words >= 150:
             sig("evidence", "no_attributed_facts_or_data", 0.3 * imp,
                 "no data points, quotes or attributions detected",
                 "Little data, quotes or attributed facts.")

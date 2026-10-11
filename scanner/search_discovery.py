@@ -47,6 +47,9 @@ class SourceStatus:
 class SearchSource:
     name = "base"
     label = "Base"
+    # True only for sources whose results are ordered by relevance. Their result
+    # order is recorded as an observed position; recency-ordered feeds get none.
+    ranked = False
     accepts_origins = ("user", "synonym", "combination", "variation", "mined_title")
     coverage_note = ""
 
@@ -85,6 +88,7 @@ class SearchSource:
 class GoogleNewsRSS(SearchSource):
     name = "google_news_rss"
     label = "Google News RSS"
+    ranked = True
     accepts_origins = ("user", "synonym", "combination", "variation", "mined_title")
     coverage_note = "News-indexed publishers only; links may be Google redirect URLs."
 
@@ -119,6 +123,7 @@ class GoogleNewsRSS(SearchSource):
 class BingNewsRSS(SearchSource):
     name = "bing_news_rss"
     label = "Bing News RSS"
+    ranked = True
     coverage_note = "News-indexed publishers only."
 
     def build_url(self, query, window_hours):
@@ -283,10 +288,14 @@ def run_search_sources(
             if err:
                 messages.append(f"{source.label} '{query.text}': {err}")
                 continue
-            for item in found:
+            observed_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            for rank, item in enumerate(found, start=1):
                 item.discovery_query = query.text
                 item.query_origin = query.origin
                 item.user_keyword = query.user_keyword
+                if source.ranked:
+                    item.search_ranks.append({"source": source.label, "query": query.text, "rank": rank,
+                                              "observed_at": observed_at})
             items.extend(found)
             count += len(found)
             messages.append(f"{source.label} '{query.text}' ({query.origin_label}): {len(found)} results")

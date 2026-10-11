@@ -65,6 +65,11 @@ def similarity_matrix(texts: list[str], method: str = "tfidf") -> tuple[list[lis
         return _jaccard_matrix(texts), "jaccard"
 
 
+def containment(a: set[str], b: set[str]) -> float:
+    """Share of a's word shingles that also appear in b (directional: high for a copy of b)."""
+    return len(a & b) / len(a) if a else 0.0
+
+
 def max_similarity(
     texts: list[str], labels: list[str], reference_texts: list[str] | None = None,
     reference_labels: list[str] | None = None, method: str = "tfidf",
@@ -82,6 +87,9 @@ def max_similarity(
         return [(0.0, "") for _ in texts]
     matrix, _ = similarity_matrix([all_texts[i] for i in nonempty], method)
     pos = {orig: k for k, orig in enumerate(nonempty)}
+    # Verbatim reuse: 8-word shingle containment. Catches copied passages that TF-IDF
+    # under-rates and is directional (the copy scores higher than the source).
+    shingles = {orig: _shingles(all_texts[orig], 8) for orig in nonempty}
     out = []
     for i in range(len(texts)):
         if i not in pos:
@@ -92,7 +100,8 @@ def max_similarity(
         for j_orig, k in pos.items():
             if j_orig == i or all_labels[j_orig] == labels[i]:
                 continue
-            if row[k] > best:
-                best, best_label = float(row[k]), all_labels[j_orig]
+            value = max(float(row[k]), containment(shingles[i], shingles[j_orig]))
+            if value > best:
+                best, best_label = value, all_labels[j_orig]
         out.append((round(best, 3), best_label))
     return out

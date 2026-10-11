@@ -20,6 +20,9 @@ class DiscoveredItem:
     date_evidence: list[DateEvidence] = field(default_factory=list)
     publisher_url: str = ""  # e.g. Google News <source url=...>
     resolved: bool = True  # False when the URL is a search-engine redirect we could not decode
+    # Positions observed in relevance-ranked search feeds at scan time:
+    # [{"source": "Google News RSS", "query": "...", "rank": 3, "observed_at": "...Z"}]
+    search_ranks: list[dict] = field(default_factory=list)
 
     @property
     def normalized_url(self) -> str:
@@ -41,3 +44,4 @@ class DiscoveredItem:
         self.summary = self.summary or other.summary
         self.query_origin = self.query_origin or other.query_origin
         self.date_evidence.extend(other.date_evidence)
+        self.search_ranks.extend(other.search_ranks)

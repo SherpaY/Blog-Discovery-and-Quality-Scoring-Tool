@@ -64,6 +64,15 @@ CREATE TABLE IF NOT EXISTS http_cache (
     headers_json TEXT,
     content BLOB
 );
+CREATE TABLE IF NOT EXISTS search_observations (
+    normalized_url TEXT NOT NULL,
+    scan_id INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    query TEXT NOT NULL,
+    rank INTEGER NOT NULL,
+    observed_at TEXT NOT NULL,
+    PRIMARY KEY (normalized_url, scan_id, source, query)
+);
 CREATE INDEX IF NOT EXISTS idx_articles_scan ON articles(scan_id);
 CREATE INDEX IF NOT EXISTS idx_queue_state ON queue(scan_id, state);
 """
@@ -217,6 +226,24 @@ class Storage:
         rows = self.conn.execute("SELECT normalized_url, body_text FROM article_texts WHERE processed_at >= ?",
                                  (since,)).fetchall()
         return [(r["normalized_url"], r["body_text"]) for r in rows if r["normalized_url"] not in exclude_urls]
+
+    # ---------------------------------------------------------------- search positions
+    def add_search_observations(self, normalized_url: str, scan_id: int, ranks: list[dict]) -> None:
+        if not ranks:
+            return
+        with self._lock:
+            self.conn.executemany(
+                "INSERT OR IGNORE INTO search_observations(normalized_url, scan_id, source, query, rank, observed_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                [(normalized_url, scan_id, r["source"], r["query"], int(r["rank"]), r["observed_at"]) for r in ranks],
+            )
+            self.conn.commit()
+
+    def search_position_history(self, normalized_url: str) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT scan_id, source, query, rank, observed_at FROM search_observations WHERE normalized_url = ? "
+            "ORDER BY observed_at", (normalized_url,)).fetchall()
+        return [dict(r) for r in rows]
 
     # ---------------------------------------------------------------- HTTP cache (implements http_client.Cache)
     def get(self, url: str, max_age_seconds: float) -> FetchResult | None:

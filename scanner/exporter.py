@@ -15,6 +15,9 @@ EXPORT_COLUMNS = [
 ]
 # Extra transparency columns appended after the required ones.
 EXTRA_COLUMNS = [
+    # Position in Google/Bing News RSS results at scan time (NOT Google web rankings).
+    "search_position_best", "search_position_avg", "search_result_page", "search_position_observations",
+    "search_position_details",
     "date_status", "date_flags", "publication_date_local", "query_origin", "quality_signals", "strengths",
     "similar_to", "scoring_notes", "extraction_notes", "error", "llm_notes", "scan_id",
 ]

@@ -169,6 +169,21 @@ def test_google_news_rss_parsing_and_url_decoding():
     assert "when%3A7d" in src.build_url("technical seo", 168)
 
 
+def test_ranks_recorded_only_for_relevance_ranked_sources(fetcher_factory):
+    s = FakeSession()
+    s.add("https://news.google.com/robots.txt", b"", status=404)
+    s.add(GoogleNewsRSS().build_url("technical seo", 168), fixture_bytes("google_news.xml"),
+          content_type="application/rss+xml")
+    s.add("https://medium.com/robots.txt", b"", status=404)
+    s.add(MediumTagFeed().build_url("technical seo", 168), fixture_bytes("rss2.xml"), content_type="application/rss+xml")
+    items, statuses, _ = run_search_sources(fetcher_factory(s), {"google_news_rss": True, "medium_tag_feed": True},
+                                            [Query("technical seo", "user", "technical seo")], 168, sleep=lambda s: None)
+    google = [i for i in items if i.discovery_source == "search:google_news_rss"]
+    medium = [i for i in items if i.discovery_source == "search:medium_tag_feed"]
+    assert [i.search_ranks[0]["rank"] for i in google] == [1, 2]
+    assert medium and all(i.search_ranks == [] for i in medium)  # newest-first feed: no position claimed
+
+
 def test_google_news_opaque_url_not_decoded():
     assert decode_google_news_url("https://news.google.com/rss/articles/CBMiOpaqueTokenThatCannotBeDecodedXYZ") is None
     assert decode_google_news_url("https://example.com/x") is None
