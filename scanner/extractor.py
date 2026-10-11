@@ -46,6 +46,13 @@ VISIBLE_DATE_RE = re.compile(
     re.I,
 )
 
+BOT_CHALLENGE_PATTERNS = (
+    "just a moment", "attention required", "verify you are human", "verifying you are human",
+    "are you a robot", "checking your browser", "access denied", "pardon our interruption",
+    "request unsuccessful", "please enable cookies", "captcha", "bot detection", "unusual traffic",
+    "security check", "ddos protection",
+)
+
 OTHER_PUBLISHED_META = {"date", "pubdate", "publishdate", "publish-date", "publish_date", "dc.date.issued",
                         "dc.date", "dcterms.created", "dcterms.issued", "sailthru.date", "parsely-pub-date",
                         "citation_publication_date", "publication_date", "article.published", "og:published_time",
@@ -321,6 +328,12 @@ def extract_article(html: str | bytes, url: str, final_url: str | None = None) -
 
     cleaned = _clean_tree(copy.copy(soup))
     root, root_label = _select_content_root(cleaned)
+    # If the chosen container is thin but the page has much more paragraph text, use the whole body.
+    body_el = cleaned.body or cleaned
+    root_words = _block_words(root)
+    body_words = _block_words(body_el)
+    if root_words < 120 and body_words >= max(150, 2 * root_words) and root is not body_el:
+        root, root_label = body_el, f"whole <body> ({root_label} held only {root_words} words)"
     data.extraction_notes.append(f"content root: {root_label}")
 
     seen_blocks: set[int] = set()
@@ -357,13 +370,34 @@ def extract_article(html: str | bytes, url: str, final_url: str | None = None) -
     data.table_count = len(root.find_all("table"))
     data.image_count = len(root.find_all("img"))
 
+    # Many publishers embed the full text in JSON-LD; use it when the HTML yielded little.
+    jl_body = article_obj.get("articleBody") if isinstance(article_obj.get("articleBody"), str) else ""
+    if jl_body and len(jl_body.split()) > max(80, 1.5 * data.word_count):
+        paras = [re.sub(r"\s+", " ", p_).strip() for p_ in re.split(r"\n\s*\n|\r\n|\n", jl_body)]
+        paras = [p_ for p_ in paras if p_]
+        if len(paras) <= 1:  # no line breaks: split into ~4-sentence paragraphs
+            sents = re.split(r"(?<=[.!?])\s+", jl_body.strip())
+            paras = [" ".join(sents[i:i + 4]) for i in range(0, len(sents), 4)]
+        heading_blocks = [b for b in data.blocks if b[0] in ("h2", "h3", "h4", "h5", "h6")]
+        data.paragraphs = paras
+        data.blocks = heading_blocks + [("p", p_) for p_ in paras]
+        data.body_text = "\n".join(paras)
+        data.extraction_notes.append("body text taken from JSON-LD articleBody (HTML text was thin)")
+
     words = data.word_count
     page_text = _text(soup.body)[:3000].lower() if soup.body else ""
+    title_text = (_text(soup.title) or "").lower()
     spa_root = soup.find(id=re.compile(r"^(root|app|__next|___gatsby|__nuxt)$"))
-    if words < 120 and (raw_script_count >= 8 or spa_root is not None or "enable javascript" in page_text
-                        or "javascript is required" in page_text):
+    challenge = next((p_ for p_ in BOT_CHALLENGE_PATTERNS if p_ in title_text or p_ in page_text[:600]), None)
+    if words < 150 and challenge:
+        data.extraction_status = "blocked_bot_protection"
+        data.extraction_notes.append(f"site served a bot-protection / challenge page ('{challenge}'); "
+                                     "not bypassed - open the URL in a browser to review it")
+    elif words < 120 and (raw_script_count >= 8 or spa_root is not None or "enable javascript" in page_text
+                          or "javascript is required" in page_text):
         data.extraction_status = "js_rendered_suspected"
-        data.extraction_notes.append("little server-rendered text; page likely needs JavaScript (not rendered)")
+        data.extraction_notes.append(f"only {words} words in the server-rendered HTML; the page probably loads its "
+                                     "text with JavaScript or blocked automated access (not rendered or bypassed)")
     elif words < 50:
         data.extraction_status = "thin_content"
         data.extraction_notes.append("very little text extracted")

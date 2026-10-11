@@ -55,12 +55,15 @@ discovery:
   # Each one is probed before use and disabled for the scan if it is blocked,
   # rate limited, or does not return a valid feed. None is exhaustive.
   search_sources:
-    google_news_rss: true       # news.google.com/rss/search  (news-indexed sites incl. many blogs)
+    gdelt_doc: true             # GDELT DOC 2.0 API - free public news & web index (no key)
     bing_news_rss: true         # bing.com/news/search?format=rss
     medium_tag_feed: true       # medium.com/feed/tag/<tag>  (documented by Medium help centre)
     devto_tag_feed: true        # dev.to/feed/tag/<tag>  (tech topics only)
+    hn_algolia: true            # Hacker News search API (links people submitted; often blog posts)
+    # Off by default: news.google.com's robots.txt disallows automated /rss/search requests,
+    # so the tool would only report it as "disallowed". Left here so you can re-check it.
+    google_news_rss: false
     wordpress_tag_feed: false   # wordpress.com/tag/<tag>/feed  (experimental - format not officially documented)
-    hn_algolia: false           # Hacker News search API (links people submitted)
   max_search_queries: 6             # queries per source per scan (user keywords first)
   search_delay_seconds: 5           # pause between search requests
 

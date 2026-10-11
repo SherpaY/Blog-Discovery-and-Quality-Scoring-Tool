@@ -32,6 +32,7 @@ from urllib.parse import parse_qs, quote, quote_plus, urlsplit
 from .http_client import Fetcher, FetchResult
 from .models import DiscoveredItem
 from .rss_discovery import looks_like_feed, parse_feed
+from .date_verification import make_evidence
 from .topics import Query
 
 log = logging.getLogger(__name__)
@@ -52,9 +53,15 @@ class SearchSource:
     ranked = False
     accepts_origins = ("user", "synonym", "combination", "variation", "mined_title")
     coverage_note = ""
+    tag_based = False  # tag feeds: prefer short queries ("shadow ai") over long phrases
+    min_delay = 0.0    # extra pause between this source's queries (API rate limits)
 
     def build_url(self, query: str, window_hours: float) -> str | None:
         raise NotImplementedError
+
+    def soft_error(self, res: FetchResult) -> str | None:
+        """A problem with this one query (e.g. unknown tag) that should not disable the source."""
+        return None
 
     def parse(self, res: FetchResult, query: Query) -> tuple[list[DiscoveredItem], str | None]:
         parsed = parse_feed(res.content, res.final_url or res.url, source_label=f"search:{self.name}")
@@ -150,31 +157,49 @@ class MediumTagFeed(SearchSource):
     name = "medium_tag_feed"
     label = "Medium tag feed"
     accepts_origins = ("user", "synonym", "combination")
+    tag_based = True
     coverage_note = "Medium posts only; member-only posts show a preview."
 
     def build_url(self, query, window_hours):
         return f"https://medium.com/feed/tag/{quote(_slug(query))}"
+
+    def soft_error(self, res):
+        if res.status == 404:
+            return "no posts under this tag (tag does not exist)"
+        return None
 
 
 class DevToTagFeed(SearchSource):
     name = "devto_tag_feed"
     label = "DEV tag feed"
     accepts_origins = ("user", "synonym", "combination")
+    tag_based = True
     coverage_note = "dev.to posts only (software topics)."
 
     def build_url(self, query, window_hours):
         tag = re.sub(r"[^a-z0-9]", "", query.lower())
         return f"https://dev.to/feed/tag/{tag}" if tag else None
 
+    def soft_error(self, res):
+        if res.status == 404:
+            return "no posts under this tag (tag does not exist)"
+        return None
+
 
 class WordPressTagFeed(SearchSource):
     name = "wordpress_tag_feed"
     label = "WordPress.com tag feed (experimental)"
     accepts_origins = ("user", "synonym", "combination")
+    tag_based = True
     coverage_note = "WordPress.com-hosted blogs only; endpoint not officially documented."
 
     def build_url(self, query, window_hours):
         return f"https://wordpress.com/tag/{quote(_slug(query))}/feed/"
+
+    def soft_error(self, res):
+        if res.status == 404:
+            return "no posts under this tag (tag does not exist)"
+        return None
 
 
 class HackerNewsAlgolia(SearchSource):
@@ -212,7 +237,62 @@ class HackerNewsAlgolia(SearchSource):
         return items, None
 
 
-ALL_SOURCES = {cls.name: cls for cls in (GoogleNewsRSS, BingNewsRSS, MediumTagFeed, DevToTagFeed,
+class GdeltDoc(SearchSource):
+    """GDELT DOC 2.0 API: free, keyless, public index of worldwide online news and web
+    articles, built for programmatic access (about 1 request per 5 seconds)."""
+
+    name = "gdelt_doc"
+    label = "GDELT news & web index"
+    coverage_note = "Mostly news sites and larger blogs; 'seen' date is when GDELT found the article."
+    min_delay = 6.0
+
+    def build_url(self, query, window_hours):
+        end = time.gmtime()
+        start = time.gmtime(time.time() - window_hours * 3600)
+        words = query.split()
+        q = f'"{query}"' if len(words) > 1 else query
+        return ("https://api.gdeltproject.org/api/v2/doc/doc?query=" + quote(f"{q} sourcelang:english")
+                + "&mode=ArtList&format=json&maxrecords=75&sort=HybridRel"
+                + "&startdatetime=" + time.strftime("%Y%m%d%H%M%S", start)
+                + "&enddatetime=" + time.strftime("%Y%m%d%H%M%S", end))
+
+    def diagnose(self, res):
+        if res.error:
+            return super().diagnose(res)
+        return None
+
+    def soft_error(self, res):
+        if res.error or not res.ok:
+            return None
+        body = res.content.strip()
+        if not body:
+            return "no results"
+        if not body.startswith(b"{"):
+            return "query rejected by GDELT: " + body[:120].decode("utf-8", "replace").strip()
+        return None
+
+    def parse(self, res, query):
+        try:
+            data = json.loads(res.content or b"{}")
+        except ValueError:
+            return [], "invalid JSON"
+        items = []
+        for art in data.get("articles") or []:
+            url = art.get("url") or ""
+            if not url.startswith("http"):
+                continue
+            item = DiscoveredItem(url=url, title=(art.get("title") or "").strip(),
+                                  discovery_source=f"search:{self.name}")
+            seen = art.get("seendate") or ""
+            ev = make_evidence("search_result_date", seen.replace("T", " ").replace("Z", " +0000"), kind="published") \
+                if seen else None
+            if ev:
+                item.date_evidence.append(ev)
+            items.append(item)
+        return items, None
+
+
+ALL_SOURCES = {cls.name: cls for cls in (GoogleNewsRSS, BingNewsRSS, GdeltDoc, MediumTagFeed, DevToTagFeed,
                                          WordPressTagFeed, HackerNewsAlgolia)}
 
 
@@ -264,7 +344,13 @@ def run_search_sources(
         if not enabled.get(name):
             continue
         source = cls()
-        usable = [q for q in queries if q.origin in source.accepts_origins][:max(1, max_queries)]
+        usable = [q for q in queries if q.origin in source.accepts_origins]
+        if source.tag_based:
+            # Real tags are short ("shadow-ai"), so try the user keyword, then shorter phrases.
+            users = [q for q in usable if q.origin == "user"]
+            others = sorted((q for q in usable if q.origin != "user"), key=lambda q: len(q.text.split()))
+            usable = users + others
+        usable = usable[:max(1, max_queries)]
         if not usable:
             statuses.append(SourceStatus(source.label, False, "no suitable queries"))
             continue
@@ -282,8 +368,12 @@ def run_search_sources(
             if not url:
                 continue
             if i > 0:
-                sleep(delay_seconds)
+                sleep(max(delay_seconds, source.min_delay))
             res = fetcher.fetch(url, use_cache=True)
+            soft = source.soft_error(res)
+            if soft:
+                messages.append(f"{source.label} '{query.text}': {soft}")
+                continue
             problem = source.diagnose(res)
             if problem:
                 if i == 0:
@@ -323,6 +413,10 @@ def probe_sources(fetcher: Fetcher, enabled: dict[str, bool] | None = None,
         source = cls()
         url = source.build_url(test_query, 168)
         res = fetcher.fetch(url, use_cache=False)
+        soft = source.soft_error(res)
+        if soft:
+            out.append(SourceStatus(source.label, True, f"reachable; for '{test_query}': {soft}. {source.coverage_note}"))
+            continue
         problem = source.diagnose(res)
         if problem:
             out.append(SourceStatus(source.label, False, problem))

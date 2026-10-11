@@ -330,7 +330,14 @@ class ScanRunner:
             article = extract_article(res.content, item.url, res.final_url)
             row["extraction_status"] = article.extraction_status
             row["extraction_notes"] = "; ".join(article.extraction_notes)
-            row["title"] = article.title or item.title
+            # Keep the headline from the feed/search result when the page title is missing or
+            # generic (e.g. "MSN", "Loading...") or the page could not be read.
+            page_title = (article.title or "").strip()
+            generic = len(page_title) < 12 or page_title.lower() in (get_domain(res.final_url or item.url).split(".")[0],)
+            row["title"] = item.title if item.title and (generic or article.extraction_status not in OK_EXTRACTION) \
+                else (page_title or item.title)
+            if article.extraction_status not in OK_EXTRACTION:
+                row["error"] = "; ".join(n for n in article.extraction_notes if not n.startswith("content root"))
             row["canonical_url"] = article.canonical_url or res.final_url or item.url
             row["domain"] = get_domain(res.final_url or item.url)
             row["author"] = article.author

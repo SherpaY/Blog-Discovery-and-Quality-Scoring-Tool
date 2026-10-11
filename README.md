@@ -341,15 +341,27 @@ After that it runs every day at 06:17 UTC by itself.
 
 | Source | Cost / account | Status | Limits |
 |---|---|---|---|
-| Google News RSS (`news.google.com/rss/search`) | Free, none | Used if robots.txt allows; probed each scan | Only news-indexed sites. Some links are opaque Google redirects, which are resolved by matching the title in the publisher's own feed, or skipped and reported. Undocumented, may change or rate-limit |
-| Bing News RSS (`bing.com/news/search?format=rss`) | Free, none | Same | Only news-indexed sites. Undocumented, may change |
-| Medium tag feeds (`medium.com/feed/tag/<tag>`) | Free, none | Documented by Medium | Medium only, single-tag match, member-only posts show a preview |
-| DEV tag feeds (`dev.to/feed/tag/<tag>`) | Free, none | Probed each scan | dev.to only, software topics |
+| GDELT DOC 2.0 API (`api.gdeltproject.org`) | Free, none | On by default | Public index of worldwide online news and many blogs, designed for programmatic use. About 1 request per 5 seconds (the tool waits 6 s). Its "seen" date is used only as a hint and cross-checked against the article |
+| Bing News RSS (`bing.com/news/search?format=rss`) | Free, none | On by default; probed each scan | Only news-indexed sites. Many results are MSN syndicated copies, which are skipped (see below). Undocumented, may change |
+| Medium tag feeds (`medium.com/feed/tag/<tag>`) | Free, none | Documented by Medium | Medium only. Tags are short, so the tool tries your keyword first and then shorter phrases (e.g. `shadow-ai`). A missing tag means "no posts", not a broken source |
+| DEV tag feeds (`dev.to/feed/tag/<tag>`) | Free, none | Probed each scan | dev.to only, software topics. Same short-tag behaviour |
+| Hacker News (Algolia API) | Free, none | On by default | Only links people submitted (often blog posts); submission time is not publication time |
+| Google News RSS (`news.google.com/rss/search`) | Free, none | **Off by default** | Google's robots.txt disallows automated `/rss/search` requests, so the tool only ever reports it as disallowed. Left in the config so you can re-check |
 | WordPress.com tag feeds | Free, none | Off by default (experimental) | Format not officially documented |
 | Hacker News (Algolia API) | Free, none | Off by default | Only links people submitted; submission time is not publication time |
 | Competitor RSS/Atom feeds | Free | Main method | Feeds usually list only the last 10–50 posts |
 | Competitor XML sitemaps | Free | Main method | `lastmod` is only a hint; undated sitemap entries are skipped; very large sitemaps are capped |
 | **Google / Bing / DuckDuckGo web result pages** | — | **Not used** | Terms prohibit automated queries, and CAPTCHAs and anti-bot systems must not be bypassed |
+
+**Aggregator copies are skipped.** Links to `msn.com`, `flipboard.com`, `news.google.com`, `bing.com`,
+`smartnews.com`, `newsbreak.com` and `ground.news` are syndicated copies or redirect pages, rendered
+with JavaScript, so there is nothing to read. They appear in the discovery report as
+`aggregator_copy` instead of as failed rows.
+
+**Pages that can't be read are explained, not scored.** Bot-protection pages ("Just a moment…",
+CAPTCHAs) show as `blocked_bot_protection`. Pages with little server-rendered text show as
+`js_rendered_suspected`. When a site embeds the full text in its structured data (JSON-LD
+`articleBody`), that text is used instead.
 
 Every search source is tested at the start of each scan. If it is blocked (403), rate-limited (429),
 disallowed by robots.txt, or returns a CAPTCHA or consent page instead of a feed, it is **disabled
@@ -445,7 +457,8 @@ Defaults live in `config.yaml`, and your changes from the app are saved to `data
 * `discovery.window_hours`: 24, 48, 72 or 168.
 * `discovery.max_urls` and `max_urls_per_domain`: limits on articles fetched.
 * `discovery.filter_by_keywords`: keep only articles that mention a keyword.
-* `discovery.search_sources.*`: switch individual search sources on or off.
+* `discovery.search_sources.*`: switch individual search sources on or off. The live search on
+  Vercel uses the same switches.
 * `topics.variation_templates`: e.g. `"{kw} guide"`.
 * `topics.synonyms_file`: copy `data/synonyms.example.yaml` to `data/synonyms.yaml` to add synonyms.
 * `http.min_delay_seconds`, `timeout_seconds`, `max_retries`, `respect_robots`: crawling behaviour.

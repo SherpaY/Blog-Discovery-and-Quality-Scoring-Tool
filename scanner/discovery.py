@@ -77,6 +77,21 @@ def _run_method(report: MethodReport, fn: Callable[[], list[DiscoveredItem]]) ->
         return []
 
 
+# Sites that mostly host syndicated copies or redirect pages. Their pages are rendered with
+# JavaScript (nothing readable without a browser) and are not the original publisher, so
+# they are reported and skipped instead of producing empty "failed" rows.
+AGGREGATOR_HOSTS = ("msn.com", "flipboard.com", "news.google.com", "bing.com", "smartnews.com",
+                    "newsbreak.com", "ground.news")
+
+
+def _is_aggregator(url: str) -> str | None:
+    host = get_domain(url)
+    for agg in AGGREGATOR_HOSTS:
+        if host == agg or host.endswith("." + agg):
+            return agg
+    return None
+
+
 def _title_key(title: str) -> str:
     return re.sub(r"[^a-z0-9 ]", "", (title or "").lower()).strip()
 
@@ -249,6 +264,11 @@ def run_discovery(config: dict, fetcher: Fetcher, now: datetime, storage=None,
     slack = timedelta(hours=24)
     keep: list[DiscoveredItem] = []
     for key, item in merged.items():
+        agg = _is_aggregator(item.url)
+        if agg:
+            report.rejected.append((item.url, f"aggregator_copy: {agg} hosts a syndicated copy; the original "
+                                              f"publisher's URL is not available from free data ({item.title[:80]})"))
+            continue
         ok, why = is_article_like(item.url)
         if not ok:
             report.rejected.append((item.url, f"not_article_like: {why}"))

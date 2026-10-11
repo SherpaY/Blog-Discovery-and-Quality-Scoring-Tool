@@ -252,12 +252,12 @@
   function renderSettings() {
     const s = state.scan.settings || {};
     const box = $("settings");
-    box.replaceChildren(
+    box.replaceChildren(...[
       el("span", {}, el("b", { text: "Keywords: " }), ...(s.keywords || []).map((k) => el("span", { class: "chip", text: k }))),
       (s.competitor_domains || []).length ? el("span", {}, el("b", { text: "Competitors: " }), ...s.competitor_domains.map((k) => el("span", { class: "chip", text: k }))) : null,
       el("span", {}, el("b", { text: "Window: " }), s.window_hours ? `${Math.round(s.window_hours)} h` : "?"),
       el("span", {}, el("b", { text: "Flag below: " }), String(threshold())),
-    );
+    ].filter(Boolean));
   }
 
   function renderMetrics() {
@@ -407,7 +407,7 @@
       el("td", { class: "num", text: r.word_count === "" ? "–" : String(r.word_count ?? "–") }),
       el("td", { text: r.article_type || "–" }),
       el("td", { class: "num", text: r.search_position_best === "" || r.search_position_best == null ? "–" : `#${r.search_position_best}` }),
-      el("td", { class: "why", text: r.explanation || r.error || "" }),
+      el("td", { class: "why", text: r.explanation || (r.error ? `${String(r.extraction_status || "").replace(/_/g, " ")}: ${r.error}` : "") }),
     )));
   }
 

@@ -30,7 +30,7 @@ MAX_DOMAINS = 3
 MAX_URLS_LIMIT = 30
 DEFAULT_BUDGET_SECONDS = 240   # Vercel Hobby allows 300 s per request; keep a safety margin
 DISCOVERY_SHARE = 0.45         # at most this share of the budget is spent finding URLs
-LIVE_SOURCES = ("google_news_rss", "bing_news_rss", "medium_tag_feed", "devto_tag_feed")
+DEFAULT_LIVE_SOURCES = ("gdelt_doc", "bing_news_rss", "medium_tag_feed", "devto_tag_feed", "hn_algolia")
 
 
 class LiveSearchError(ValueError):
@@ -92,12 +92,14 @@ def build_live_config(params: dict, base: dict | None = None) -> dict:
         "sitemaps": [],
         "filter_by_keywords": True,
         "reprocess_seen_urls": True,
-        "max_search_queries": 2,          # user keywords first; keeps the request short
+        "max_search_queries": 3,          # user keywords first, then shorter phrases
         "search_delay_seconds": 2,
         "max_feed_pages": 1,
         "max_sitemaps_per_domain": 3,
         "methods": {"search": True, "rss": False, "sitemap": bool(domains), "seed_domains": bool(domains)},
-        "search_sources": {name: name in LIVE_SOURCES for name in ALL_SOURCES},
+        # Same sources as switched on in config.yaml (falls back to a sensible default set).
+        "search_sources": {name: bool((disc.get("search_sources") or {}).get(name, name in DEFAULT_LIVE_SOURCES))
+                           for name in ALL_SOURCES},
     })
     cfg["topics"]["max_generated_queries"] = 4
     cfg["http"]["timeout_seconds"] = min(float(cfg["http"].get("timeout_seconds", 15)), 10)

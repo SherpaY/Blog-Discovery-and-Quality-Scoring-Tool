@@ -72,3 +72,29 @@ def test_is_html_response():
     assert is_html_response("text/html; charset=utf-8", b"")
     assert is_html_response("", b"<!DOCTYPE html><html>")
     assert not is_html_response("application/pdf", b"%PDF-1.7")
+
+
+def test_bot_challenge_page_reported_not_scored():
+    html = """<html><head><title>Just a moment...</title></head><body><h1>Checking your browser before accessing
+    govtech.com</h1><p>This process is automatic.</p></body></html>"""
+    a = extract_article(html, "https://www.govtech.com/security/shadow-ai")
+    assert a.extraction_status == "blocked_bot_protection"
+    assert "not bypassed" in " ".join(a.extraction_notes)
+
+
+def test_jsonld_article_body_used_when_html_is_thin():
+    body = " ".join(f"Sentence number {i} explains a concrete step of the shadow AI policy rollout." for i in range(40))
+    html = ('<html><head><script type="application/ld+json">{"@type":"NewsArticle","headline":"Shadow AI",'
+            '"datePublished":"2026-10-06T03:59:00Z","articleBody":"' + body + '"}</script></head>'
+            '<body><article><h1>Shadow AI</h1><p>Short teaser only.</p></article></body></html>')
+    a = extract_article(html, "https://www.govtech.com/security/shadow-ai")
+    assert a.word_count > 300 and a.extraction_status == "ok"
+    assert len(a.paragraphs) >= 5
+    assert any("JSON-LD articleBody" in n for n in a.extraction_notes)
+
+
+def test_thin_container_falls_back_to_body():
+    paras = "".join(f"<p>Paragraph {i} has enough words to count as real article content for the test.</p>" for i in range(20))
+    html = f"<html><body><main><p>Teaser.</p></main><div class='story'>{paras}</div></body></html>"
+    a = extract_article(html, "https://x.com/blog/long-post")
+    assert a.word_count > 200

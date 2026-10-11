@@ -19,7 +19,8 @@ def test_config_validation_and_limits():
     cfg = build_live_config({"keywords": "technical seo, content marketing", "max_urls": 500, "window_hours": "72"})
     assert cfg["keywords"] == ["technical seo", "content marketing"]
     assert cfg["discovery"]["max_urls"] == 30 and cfg["discovery"]["window_hours"] == 72
-    assert cfg["discovery"]["search_sources"]["google_news_rss"] and not cfg["discovery"]["search_sources"]["hn_algolia"]
+    sources = cfg["discovery"]["search_sources"]
+    assert sources["gdelt_doc"] and sources["bing_news_rss"] and not sources["google_news_rss"]  # follows config.yaml
     assert cfg["discovery"]["methods"]["seed_domains"] is False  # no domains given
     with pytest.raises(LiveSearchError):
         build_live_config({"keywords": []})
@@ -41,6 +42,8 @@ def test_access_code(monkeypatch):
 
 def live_base(base_config):
     base_config["topics"]["synonyms_file"] = None
+    # The fixture mini-web serves a Google News feed; other sources get 404s from the fake session.
+    base_config["discovery"]["search_sources"] = {"google_news_rss": True}
     return base_config
 
 

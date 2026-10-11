@@ -244,3 +244,48 @@ def test_keyword_matching_and_title_mining():
     mined = mine_title_phrases(["Technical SEO checklist", "The technical SEO checklist for 2026", "SEO checklist"],
                                ["technical seo"])
     assert any(q.text == "seo checklist" and q.origin == "mined_title" for q in mined)
+
+
+# ----------------------------------------------------------------------------- new sources & fallbacks
+def test_gdelt_parsing_and_query_errors():
+    from scanner.search_discovery import GdeltDoc
+
+    src = GdeltDoc()
+    url = src.build_url("shadow ai policy", 168)
+    assert "api.gdeltproject.org" in url and "mode=ArtList" in url and "startdatetime=" in url
+    assert "%22shadow%20ai%20policy%22" in url  # multi-word phrase is quoted
+    body = (b'{"articles":[{"url":"https://blog.example.com/shadow-ai-policy","title":"Writing a shadow AI policy",'
+            b'"seendate":"20261010T121500Z","domain":"blog.example.com","language":"English"}]}')
+    res = FetchResult(url=url, final_url=url, status=200, content=body, headers={"content-type": "application/json"})
+    assert src.soft_error(res) is None and src.diagnose(res) is None
+    items, err = src.parse(res, Query("shadow ai policy", "user", "shadow ai policy"))
+    assert err is None and items[0].url == "https://blog.example.com/shadow-ai-policy"
+    assert items[0].date_evidence[0].value.isoformat() == "2026-10-10T12:15:00+00:00"
+    bad = FetchResult(url=url, final_url=url, status=200, content=b"The specified phrase is too short.")
+    assert src.soft_error(bad).startswith("query rejected by GDELT")
+
+
+def test_tag_feed_missing_tag_is_not_fatal_and_short_tags_tried(fetcher_factory):
+    from scanner.search_discovery import DevToTagFeed
+
+    s = FakeSession()
+    s.add("https://dev.to/robots.txt", b"", status=404)
+    s.add(DevToTagFeed().build_url("shadow ai policy template", 168), b"not found", status=404)
+    s.add(DevToTagFeed().build_url("shadow ai", 168), fixture_bytes("rss2.xml"), content_type="application/rss+xml")
+    queries = [Query("shadow ai policy template", "user", "shadow ai policy template"),
+               Query("shadow ai policy", "combination", "shadow ai policy template"),
+               Query("shadow ai", "combination", "shadow ai policy template"),
+               Query("shadow ai policy template guide", "variation", "shadow ai policy template")]
+    items, statuses, msgs = run_search_sources(fetcher_factory(s), {"devto_tag_feed": True}, queries, 168,
+                                               max_queries=2, sleep=lambda s: None)
+    assert statuses[0].available  # a missing tag does not disable the source
+    assert any("tag does not exist" in m for m in msgs)
+    assert items and all(i.discovery_query == "shadow ai" for i in items)  # shortest phrase tried second
+
+
+def test_aggregator_copies_detected():
+    from scanner.discovery import _is_aggregator
+
+    assert _is_aggregator("https://www.msn.com/en-us/news/technology/some-story/ar-AA1abc") == "msn.com"
+    assert _is_aggregator("https://flipboard.com/@x/story") == "flipboard.com"
+    assert _is_aggregator("https://www.govtech.com/security/shadow-ai-in-tennessee") is None
