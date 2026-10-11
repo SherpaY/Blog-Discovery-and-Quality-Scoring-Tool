@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+  <url>
+    <loc>https://goodblog.com/news/google-october-core-update</loc>
+    <news:news>
+      <news:publication><news:name>Good Blog</news:name><news:language>en</news:language></news:publication>
+      <news:publication_date>2026-10-10T15:30:00-04:00</news:publication_date>
+      <news:title>Google confirms October 2026 core update rollout</news:title>
+    </news:news>
+  </url>
+</urlset>

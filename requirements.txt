@@ -1,0 +1,11 @@
+# All free, open-source packages. No paid APIs or accounts needed.
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=5.0
+feedparser>=6.0
+python-dateutil>=2.8
+PyYAML>=6.0
+streamlit>=1.35
+pandas>=2.0
+scikit-learn>=1.3
+pytest>=8.0

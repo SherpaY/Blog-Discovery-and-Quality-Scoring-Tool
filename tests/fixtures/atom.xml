@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Atom Blog</title>
+  <link href="https://atomblog.com/"/>
+  <link rel="next" href="https://atomblog.com/feed.atom?page=2"/>
+  <updated>2026-10-10T18:30:02Z</updated>
+  <id>urn:uuid:60a76c80-d399-11d9-b93C-0003939e0af6</id>
+  <entry>
+    <title>Atom entry about content marketing</title>
+    <link rel="alternate" href="https://atomblog.com/posts/atom-content-marketing-entry"/>
+    <id>urn:uuid:1225c695-cfb8-4ebb-aaaa-80da344efa6a</id>
+    <published>2026-10-10T18:30:02Z</published>
+    <updated>2026-10-11T08:00:00Z</updated>
+    <summary>Summary text about content marketing.</summary>
+  </entry>
+  <entry>
+    <title>Only updated</title>
+    <link href="https://atomblog.com/posts/only-updated-entry"/>
+    <id>tag:atomblog.com,2026:2</id>
+    <updated>2026-10-09T10:00:00+02:00</updated>
+    <summary>No published element.</summary>
+  </entry>
+</feed>

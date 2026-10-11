@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How to Run a Technical SEO Audit for a 10,000-Page Site | Good Blog</title>
+<meta name="description" content="A step-by-step technical SEO audit process with crawl budget numbers, log-file examples and real fixes.">
+<link rel="canonical" href="https://goodblog.com/blog/technical-seo-audit-large-sites">
+<meta property="og:title" content="How to Run a Technical SEO Audit for a 10,000-Page Site">
+<meta property="article:published_time" content="2026-10-09T08:15:00+00:00">
+<meta property="article:modified_time" content="2026-10-09T10:00:00+00:00">
+<meta name="author" content="Priya Raman">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"WebSite","name":"Good Blog","url":"https://goodblog.com"},
+ {"@type":"BlogPosting","headline":"How to Run a Technical SEO Audit for a 10,000-Page Site",
+  "datePublished":"2026-10-09T08:15:00Z","dateModified":"2026-10-09T10:00:00Z",
+  "author":{"@type":"Person","name":"Priya Raman"}}]}
+</script>
+</head>
+<body>
+<header class="site-header"><nav class="main-menu"><a href="/">Home</a><a href="/blog">Blog</a><a href="/pricing">Pricing</a></nav></header>
+<div class="cookie-banner">We use cookies to improve your experience. Accept all cookies?</div>
+<main>
+<article>
+<h1>How to Run a Technical SEO Audit for a 10,000-Page Site</h1>
+<p class="byline">By Priya Raman · Published October 9, 2026</p>
+<div class="entry-content">
+<p>Last quarter we audited an online furniture retailer with 10,412 indexable URLs. Google Search Console reported that only 6,180 of them were indexed, and the crawl stats report showed Googlebot requesting about 2,300 pages per day. This guide walks through the exact technical SEO audit process we used, with the numbers we saw at each step.</p>
+<h2>Step 1: Crawl the site with a desktop crawler</h2>
+<p>We started with Screaming Frog SEO Spider 20.1 in database storage mode, limited to 4 threads to avoid slowing the production server. The crawl took 47 minutes and found 14,903 URLs, which means roughly 4,500 URLs existed that were not in the XML sitemap. For example, faceted navigation URLs such as <code>/sofas?color=grey&amp;sort=price</code> accounted for 3,870 of them.</p>
+<p>According to <a href="https://developers.google.com/search/docs/crawling-indexing/large-site-managing-crawl-budget">Google's crawl budget documentation</a>, crawl budget mainly matters for sites with more than 10,000 frequently changing pages, so this site was right at the threshold.</p>
+<h2>Step 2: Compare the crawl with server log files</h2>
+<p>We exported 30 days of Nginx access logs (about 1.9 GB) and filtered for verified Googlebot user agents by reverse DNS lookup, as described in <a href="https://developers.google.com/search/docs/crawling-indexing/verifying-googlebot">Google's verification guide</a>. Of 68,214 Googlebot requests, 41% went to parameterised URLs that returned the same products in a different order.</p>
+<pre><code>awk '$9 == 200 && $14 ~ /Googlebot/' access.log | cut -d' ' -f7 | sort | uniq -c | sort -rn | head -50</code></pre>
+<p>That single command showed that the top 50 crawled URLs included 31 sort-order variants. Such crawl waste is common on ecommerce sites, and it delayed the discovery of 212 new product pages by an average of 9 days.</p>
+<h2>Step 3: Fix canonical tags and internal links</h2>
+<p>The category templates pointed canonical tags at the parameterised URL instead of the clean category URL. We changed the template so every variant canonicalises to the clean path, and we removed sort parameters from internal links in the theme. The developer estimate was 6 hours; the change shipped in one sprint.</p>
+<ol>
+<li>Set <code>rel="canonical"</code> to the parameter-free category URL.</li>
+<li>Add <code>nofollow</code> only to sort links, not to filter links that have search demand.</li>
+<li>Return 404 for empty filter combinations instead of a soft 200 page.</li>
+</ol>
+<h2>Step 4: Measure the result</h2>
+<p>Six weeks after the fix, indexed pages rose from 6,180 to 8,940, and Googlebot requests to parameter URLs fell from 41% to 12% of the total. Organic sessions to category pages increased 18% compared with the same period a year earlier, as reported in the client's GA4 property. A survey by <a href="https://www.botify.com/insight">Botify</a> found similar crawl waste levels on large retail sites, which matches what we saw.</p>
+<h2>What we would do differently</h2>
+<p>We should have segmented the log analysis by template from day one. Product pages, category pages and blog posts have very different crawl patterns, and mixing them hid the fact that blog posts were crawled only once every 23 days. If you run a similar audit, create one crawl segment per template in your crawler before you start, and keep a spreadsheet of every fix with its deployment date so you can match changes to the indexing graph later.</p>
+<p>Finally, schedule a smaller follow-up crawl 30 days after launch. In our case it caught a regression where a new filter for "material" reintroduced 600 duplicate URLs, which we fixed before Google crawled most of them.</p>
+</div>
+<div class="share-buttons"><a href="https://twitter.com/intent/tweet?url=x">Tweet</a><a href="https://www.facebook.com/sharer/sharer.php?u=x">Share</a></div>
+<section class="related-posts"><h3>Related posts</h3><p>Ten SEO myths you should stop believing today right now please read more.</p></section>
+</article>
+</main>
+<aside class="sidebar"><h3>Subscribe</h3><p>Join our newsletter for weekly tips and tricks for marketers everywhere.</p></aside>
+<footer class="site-footer"><p>© 2026 Good Blog. All rights reserved. Privacy policy and terms of service.</p></footer>
+</body>
+</html>

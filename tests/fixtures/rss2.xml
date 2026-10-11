@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+<title>Good Blog</title>
+<link>https://goodblog.com/blog</link>
+<description>SEO articles</description>
+<generator>https://wordpress.org/?v=6.6</generator>
+<item>
+  <title>How to Run a Technical SEO Audit for a 10,000-Page Site</title>
+  <link>https://goodblog.com/blog/technical-seo-audit-large-sites?utm_source=rss&amp;utm_medium=rss</link>
+  <pubDate>Fri, 09 Oct 2026 08:15:00 +0000</pubDate>
+  <description><![CDATA[<p>A step-by-step <b>technical SEO</b> audit process.</p>]]></description>
+</item>
+<item>
+  <title>Content Marketing Budgets in 2026</title>
+  <link>https://goodblog.com/blog/content-marketing-budgets-2026</link>
+  <pubDate>Thu, 08 Oct 2026 09:00:00 +0000</pubDate>
+  <description>Survey data on content marketing budgets.</description>
+</item>
+<item>
+  <title>An Old Post About Link Building</title>
+  <link>https://goodblog.com/blog/old-link-building-post</link>
+  <pubDate>Mon, 03 Mar 2025 10:00:00 +0000</pubDate>
+  <description>Link building from last year.</description>
+</item>
+<item>
+  <title>Undated item about technical SEO</title>
+  <link>https://goodblog.com/blog/undated-technical-seo-note</link>
+  <description>No date on this one.</description>
+</item>
+</channel>
+</rss>

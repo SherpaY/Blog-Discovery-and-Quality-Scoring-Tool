@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Local data - never commit
+data/*.db
+data/*.db-*
+data/*.sqlite*
+data/user_config.yaml
+data/scan.lock
+data/stop.flag
+data/scan_status.json
+output/*
+!output/.gitkeep
+logs/*
+!logs/.gitkeep
+.env
+*.secret
+.DS_Store

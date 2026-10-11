@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html><head><title>Technical SEO Audit for Large Sites: Our Process</title>
+<link rel="canonical" href="https://copyblog.com/technical-seo-audit-process">
+<meta property="article:published_time" content="2026-10-10T11:00:00Z">
+<script type="application/ld+json">{"@type":"BlogPosting","headline":"Technical SEO Audit for Large Sites: Our Process","datePublished":"2026-10-10T11:00:00Z"}</script>
+</head><body><article><h1>Technical SEO Audit for Large Sites: Our Process</h1>
+<p>Last quarter we audited an online furniture retailer with 10,412 indexable URLs. Google Search Console reported that only 6,180 of them were indexed, and the crawl stats report showed Googlebot requesting about 2,300 pages per day. This guide walks through the exact technical SEO audit process we used, with the numbers we saw at each step.</p>
+<h2>Step 1: Crawl the site with a desktop crawler</h2>
+<p>We started with Screaming Frog SEO Spider 20.1 in database storage mode, limited to 4 threads to avoid slowing the production server. The crawl took 47 minutes and found 14,903 URLs, which means roughly 4,500 URLs existed that were not in the XML sitemap. For example, faceted navigation URLs accounted for 3,870 of them.</p>
+<h2>Step 2: Compare the crawl with server log files</h2>
+<p>We exported 30 days of Nginx access logs and filtered for verified Googlebot user agents by reverse DNS lookup. Of 68,214 Googlebot requests, 41% went to parameterised URLs that returned the same products in a different order.</p>
+<p>That single command showed that the top 50 crawled URLs included 31 sort-order variants. Such crawl waste is common on ecommerce sites, and it delayed the discovery of 212 new product pages by an average of 9 days.</p>
+<h2>Step 3: Fix canonical tags and internal links</h2>
+<p>The category templates pointed canonical tags at the parameterised URL instead of the clean category URL. We changed the template so every variant canonicalises to the clean path, and we removed sort parameters from internal links in the theme.</p>
+<h2>Step 4: Measure the result</h2>
+<p>Six weeks after the fix, indexed pages rose from 6,180 to 8,940, and Googlebot requests to parameter URLs fell from 41% to 12% of the total. Organic sessions to category pages increased 18% compared with the same period a year earlier.</p>
+</article></body></html>

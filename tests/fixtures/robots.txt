@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /private/
+Disallow: /blog/secret-
+Crawl-delay: 1
+
+User-agent: BadBot
+Disallow: /
+
+Sitemap: https://goodblog.com/sitemap_index.xml

@@ -1,0 +1,166 @@
+# Blog Quality Scanner - default configuration
+#
+# This file holds the shipped defaults. Settings you change in the web app are
+# saved to data/user_config.yaml (not committed) and override these values.
+# You can also edit this file directly.
+
+# ---------------------------------------------------------------------------
+# What to look for
+# ---------------------------------------------------------------------------
+# Discovery is keyword-driven: every keyword (and its generated variations) is
+# searched in the free keyword sources below, and articles from competitor
+# domains are kept only when they mention a keyword.
+keywords:
+  - technical seo
+  - content marketing
+
+# Optional: websites to monitor (domains or blog URLs). Feeds and sitemaps are
+# discovered automatically. These are examples - replace them with your competitors.
+competitor_domains:
+  - searchengineland.com
+  - www.searchenginejournal.com
+
+# ---------------------------------------------------------------------------
+# Discovery
+# ---------------------------------------------------------------------------
+discovery:
+  window_hours: 168           # 24, 48, 72 or 168 (past week)
+  max_urls: 120               # maximum article URLs fetched per scan
+  max_urls_per_domain: 25     # keeps one big site from using the whole budget
+
+  methods:
+    rss: true                 # Method A - configured feeds
+    sitemap: true             # Method B - configured sitemaps
+    seed_domains: true        # Method D - auto-discover feeds/sitemaps of competitor_domains
+    search: true              # Method C - free keyword search sources (probed each scan)
+
+  # Extra feeds and sitemaps you want checked on every scan (optional).
+  feeds:
+    - https://searchengineland.com/feed
+  sitemaps: []
+
+  max_feed_pages: 3                 # follow rel="next"/?paged= pagination at most this far
+  max_sitemap_bytes: 10000000       # skip sitemaps larger than ~10 MB
+  max_sitemaps_per_domain: 8        # nested sitemaps fetched per domain
+  max_sitemap_depth: 2              # sitemap index -> child -> grandchild
+
+  # Only keep articles whose title/summary/body mention a keyword or generated variation.
+  # On by default: the tool looks for articles written about YOUR keywords.
+  # Set to false to see everything competitor domains publish.
+  filter_by_keywords: true
+  # Skip URLs already processed in an earlier scan (stored in SQLite).
+  reprocess_seen_urls: false
+
+  # Method C keyword sources. All are free and need no account or API key.
+  # Each one is probed before use and disabled for the scan if it is blocked,
+  # rate limited, or does not return a valid feed. None is exhaustive.
+  search_sources:
+    google_news_rss: true       # news.google.com/rss/search  (news-indexed sites incl. many blogs)
+    bing_news_rss: true         # bing.com/news/search?format=rss
+    medium_tag_feed: true       # medium.com/feed/tag/<tag>  (documented by Medium help centre)
+    devto_tag_feed: true        # dev.to/feed/tag/<tag>  (tech topics only)
+    wordpress_tag_feed: false   # wordpress.com/tag/<tag>/feed  (experimental - format not officially documented)
+    hn_algolia: false           # Hacker News search API (links people submitted)
+  max_search_queries: 6             # queries per source per scan (user keywords first)
+  search_delay_seconds: 5           # pause between search requests
+
+# ---------------------------------------------------------------------------
+# Keyword / topic expansion (no search volumes or difficulty - none are invented)
+# ---------------------------------------------------------------------------
+topics:
+  variation_templates:
+    - "{kw} guide"
+    - "{kw} tips"
+    - "how to {kw}"
+    - "{kw} news"
+  use_word_combinations: true
+  synonyms_file: data/synonyms.yaml   # optional local file: {term: [synonym, ...]}
+  mine_titles: true                   # suggest phrases seen in discovered titles
+  max_generated_queries: 20
+
+# ---------------------------------------------------------------------------
+# HTTP behaviour (polite crawling)
+# ---------------------------------------------------------------------------
+http:
+  user_agent: "BlogQualityScanner/1.0 (+local SEO research tool; respects robots.txt)"
+  timeout_seconds: 15
+  max_retries: 1              # one retry for timeouts / 5xx, never infinite
+  min_delay_seconds: 2.0      # per-domain delay; robots.txt Crawl-delay is honoured if larger
+  max_crawl_delay_seconds: 30 # domains asking for more than this are skipped
+  max_page_bytes: 3000000
+  max_redirects: 5
+  respect_robots: true
+  cache_ttl_hours: 6
+
+# ---------------------------------------------------------------------------
+# Date verification
+# ---------------------------------------------------------------------------
+dates:
+  # Minimum confidence needed to count as "confirmed recent": high | medium | low
+  min_confidence_for_confirmed: medium
+  # Two published dates within this many hours are treated as agreeing.
+  agreement_tolerance_hours: 36
+
+# ---------------------------------------------------------------------------
+# Quality scoring (0-100, lower = more potential problems)
+# ---------------------------------------------------------------------------
+quality:
+  flag_threshold: 60          # articles scoring below this are exported as "potentially low quality"
+  min_words_to_score: 80      # fewer extracted words -> "not scored" (likely JS page or extraction issue)
+
+  weights:                    # maximum points per criterion (should sum to 100)
+    originality: 25
+    depth: 20
+    evidence: 20
+    usefulness: 20
+    readability: 15
+
+  categories:                 # provisional, not universal standards
+    - {min: 80, label: Strong quality signals}
+    - {min: 60, label: Reasonable quality}
+    - {min: 40, label: Needs manual review}
+    - {min: 0,  label: Potentially very low quality}
+
+  # Per article type: expected length and how much external evidence matters (0-1).
+  article_types:
+    news:      {expected_words: 300, evidence_importance: 0.9}
+    tutorial:  {expected_words: 700, evidence_importance: 0.4}
+    listicle:  {expected_words: 600, evidence_importance: 0.5}
+    review:    {expected_words: 700, evidence_importance: 0.6}
+    opinion:   {expected_words: 500, evidence_importance: 0.3}
+    general:   {expected_words: 500, evidence_importance: 0.6}
+
+  thresholds:
+    near_duplicate_similarity: 0.80
+    high_similarity: 0.60
+    duplicate_paragraph_ratio: 0.15
+    generic_phrase_per_1000_words: 4
+    keyword_phrase_density: 0.035
+    thin_section_words: 40
+    max_avg_sentence_words: 28
+    max_avg_paragraph_words: 120
+    min_concrete_details_per_100_words: 1.5
+    vague_words_per_100_words: 2.0
+
+  similarity:
+    method: tfidf            # tfidf (default) | semantic (needs: pip install sentence-transformers)
+    compare_with_recent_days: 7
+
+# Optional local LLM notes via Ollama (free, runs on your Mac). Never changes the score.
+ollama:
+  enabled: false
+  url: http://localhost:11434
+  model: llama3.1
+  timeout_seconds: 60
+
+# ---------------------------------------------------------------------------
+# Daily schedule (macOS launchd) and paths
+# ---------------------------------------------------------------------------
+schedule:
+  hour: 7
+  minute: 30
+
+paths:
+  data_dir: data
+  output_dir: output
+  log_dir: logs
