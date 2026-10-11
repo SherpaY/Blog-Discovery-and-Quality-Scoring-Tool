@@ -1,1 +1,115 @@
-{"generated_at": null, "scans": []}
+{
+ "generated_at": "2026-10-11T12:51:42Z",
+ "columns": [
+  "scan_date",
+  "title",
+  "url",
+  "canonical_url",
+  "domain",
+  "user_keyword",
+  "discovery_query",
+  "discovery_source",
+  "publication_date",
+  "modification_date",
+  "date_confidence",
+  "date_evidence",
+  "author",
+  "article_type",
+  "word_count",
+  "heading_count",
+  "paragraph_count",
+  "external_link_count",
+  "quality_score",
+  "quality_category",
+  "originality_score",
+  "depth_score",
+  "evidence_score",
+  "usefulness_score",
+  "readability_score",
+  "quality_flags",
+  "explanation",
+  "extraction_status",
+  "http_status",
+  "search_position_best",
+  "search_position_avg",
+  "search_result_page",
+  "search_position_observations",
+  "search_position_details",
+  "date_status",
+  "date_flags",
+  "publication_date_local",
+  "query_origin",
+  "quality_signals",
+  "strengths",
+  "similar_to",
+  "scoring_notes",
+  "extraction_notes",
+  "error",
+  "llm_notes",
+  "scan_id"
+ ],
+ "views": {
+  "all_articles": "All discovered articles",
+  "confirmed_recent": "Confirmed recent articles",
+  "low_quality": "Potentially low-quality articles (confirmed recent, below threshold)",
+  "needs_date_review": "Articles requiring date verification",
+  "failed_extractions": "Failed extractions"
+ },
+ "criteria": [
+  "originality",
+  "depth",
+  "evidence",
+  "usefulness",
+  "readability"
+ ],
+ "scans": [
+  {
+   "file": "scans/scan_202610111247_1.json",
+   "scan_id": 1,
+   "started_at": "2026-10-11T12:47:14Z",
+   "finished_at": "2026-10-11T12:51:42Z",
+   "status": "completed",
+   "trigger": "github-actions",
+   "window_hours": 168.0,
+   "results": {
+    "urls_processed": 48,
+    "extracted_ok": 19,
+    "confirmed_recent": 11,
+    "flagged_low_quality": 0,
+    "needs_date_review": 2,
+    "outside_window_rejected": 6,
+    "failed_extractions": 29,
+    "skipped_after_fetch": 6,
+    "flagged_any_date": 0
+   },
+   "settings": {
+    "keywords": [
+     "technical seo",
+     "content marketing"
+    ],
+    "competitor_domains": [
+     "searchengineland.com",
+     "www.searchenginejournal.com"
+    ],
+    "window_hours": 168,
+    "max_urls": 120,
+    "flag_threshold": 60,
+    "weights": {
+     "originality": 25,
+     "depth": 20,
+     "evidence": 20,
+     "usefulness": 20,
+     "readability": 15
+    },
+    "filter_by_keywords": true,
+    "search_sources": [
+     "gdelt_doc",
+     "bing_news_rss",
+     "medium_tag_feed",
+     "devto_tag_feed",
+     "hn_algolia"
+    ]
+   }
+  }
+ ]
+}
