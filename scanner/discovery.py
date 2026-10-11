@@ -53,10 +53,20 @@ class DiscoveryReport:
         return counts
 
 
+ERROR_MARKERS = ("dns_error", "unsafe_url", "connection_error", "timeout", "http_4", "http_5", "robots:",
+                 "malformed", "not a valid feed", "too_large", "request_error")
+
+
 def _run_method(report: MethodReport, fn: Callable[[], list[DiscoveredItem]]) -> list[DiscoveredItem]:
     try:
+        before = len(report.messages)
         items = fn()
         report.found += len(items)
+        new_msgs = report.messages[before:]
+        if not items and new_msgs and all(any(m in msg for m in ERROR_MARKERS) or "0 feed link" in msg
+                                          or "no Sitemap line" in msg for msg in new_msgs):
+            report.ok = False
+            report.messages.append("nothing could be fetched - see errors above")
         return items
     except StopRequested:
         raise

@@ -156,7 +156,8 @@ class Fetcher:
         try:
             check_url(url, self.resolver)
         except UnsafeURLError as exc:
-            return FetchResult(url=url, final_url=url, error=f"unsafe_url: {exc}")
+            kind = "dns_error" if str(exc).startswith("DNS") else "unsafe_url"
+            return FetchResult(url=url, final_url=url, error=f"{kind}: {exc}")
         if check_robots:
             allowed, reason = self.is_allowed(url)
             if not allowed:

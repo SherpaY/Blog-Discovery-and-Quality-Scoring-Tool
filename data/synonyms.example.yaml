@@ -1,0 +1,7 @@
+# Optional local synonym list used to generate extra query variations.
+# Copy to data/synonyms.yaml and edit. Format:  term: [synonym, synonym]
+# Generated queries are always labelled "generated: synonym" in the results.
+seo: [search engine optimization]
+audit: [checklist, review]
+content marketing: [content strategy]
+link building: [backlinks]

@@ -138,7 +138,8 @@ def main(argv: list[str] | None = None) -> int:
             print("No scan is running.")
         return 0
     if args.command == "status":
-        print(json.dumps(read_status(config), indent=2) or "No status yet.")
+        status = read_status(config)
+        print(json.dumps(status, indent=2) if status else "No scan has run yet.")
         return 0
     if args.command == "history":
         storage = Storage(resolve_path(config, "data_dir") / "scanner.db")
