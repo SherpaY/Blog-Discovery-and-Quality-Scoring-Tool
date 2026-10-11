@@ -77,6 +77,9 @@ def _cell(value):
         return "; ".join(str(v) for v in value)
     if isinstance(value, float):
         return f"{value:.1f}"
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        # Scraped text starting with these could run as a formula in Excel/Numbers.
+        return "'" + value
     return value
 
 

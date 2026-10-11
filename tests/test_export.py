@@ -53,3 +53,10 @@ def test_export_scan_writes_five_dated_files(tmp_path):
         assert path.parent.parent == tmp_path  # output/<YYYY-MM-DD>/
     with out["low_quality"].open(encoding="utf-8-sig") as fh:
         assert len(list(csv.DictReader(fh))) == 1
+
+
+def test_csv_neutralises_spreadsheet_formulas(tmp_path):
+    path = write_csv([{"title": "=HYPERLINK(\"http://evil\")", "url": "https://a.com/x"}], tmp_path / "f.csv")
+    with path.open(encoding="utf-8-sig") as fh:
+        row = next(csv.DictReader(fh))
+    assert row["title"].startswith("'=")

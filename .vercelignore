@@ -1,0 +1,5 @@
+# Deploy only the static dashboard. Everything else (the Python scanner, app.py,
+# tests, config) runs on your Mac or in GitHub Actions, never on Vercel.
+/*
+!site
+!vercel.json

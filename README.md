@@ -128,6 +128,7 @@ python -m scanner history                               # previous scans with co
 python -m scanner discover-feeds example.com            # feed + sitemap finder
 python -m scanner probe-search                          # which free search sources work now
 python -m scanner expand "technical seo audit"          # preview generated query variations
+python -m scanner publish                               # update the team dashboard data (site/data/)
 ```
 
 Every scan prints a summary: URLs discovered, queued, rejected (with reasons), confirmed recent,
@@ -256,6 +257,72 @@ If you move the project folder or recreate `.venv`, run `schedule install` again
 
 ---
 
+## Sharing with your team (Vercel + GitHub Actions, free)
+
+The scanner can't run *on* Vercel. Vercel only runs short-lived functions, while a scan takes
+minutes and needs saved history. So the work is split:
+
+```
+GitHub Actions (daily or on demand)  ──►  runs the scan  ──►  commits results to site/data/
+                                                                   │
+Vercel  ◄──────────── redeploys automatically on every commit ─────┘
+   └── serves site/ : a static dashboard your teammates open in the browser
+```
+
+The dashboard shows each scan's settings, summary numbers and source status. It has the same views
+and filters as the local app (domain, keyword, score, word count, publication date, text search),
+clickable article links, a detail popup with every scoring signal and date evidence, and CSV
+downloads (shown rows or flagged only).
+
+### One-time setup
+
+1. **Allow the workflow to commit results.** On GitHub, open **Settings → Actions → General →
+   Workflow permissions** and choose **Read and write permissions**.
+2. **Connect Vercel.** In Vercel, open **Add New → Project** and import this repository. Leave the
+   framework preset as **Other**. `vercel.json` and `.vercelignore` already tell Vercel to publish
+   only the `site/` folder, so it no longer tries to run `app.py`.
+3. **Point production at the right branch.** Vercel deploys production from `main` by default. Either
+   merge this branch into `main`, or in Vercel open **Settings → Environments → Production → Branch
+   Tracking** and enter the branch this code is on. Until then Vercel shows "No Production
+   Deployment".
+4. **Run the first scan.** On GitHub, open **Actions → Daily blog scan → Run workflow**. You can
+   enter one-off keywords, a window (24/48/72/168 h) and a URL limit. When it finishes (usually
+   10–40 minutes, depending on limits), it commits `site/data/`, Vercel redeploys, and teammates see
+   the results.
+
+After that it runs every day at 06:17 UTC by itself.
+
+### Day-to-day
+
+* **Change keywords or competitor domains:** edit `config.yaml` on GitHub (pencil icon) and commit.
+  The next scan uses the new settings.
+* **Get full CSVs:** each run also attaches the five CSV files and logs as a downloadable artifact on
+  the Actions run page, kept for 30 days.
+* **Publish scans you ran on your Mac:** run `python -m scanner publish`, then commit and push
+  `site/data/`.
+
+### Things to know
+
+* **Who can see it:** on Vercel's free plan the production URL is public to anyone who has the link.
+  The site tells search engines not to index it. Password-protecting it requires a paid Vercel plan,
+  so if results are sensitive, share the link carefully or keep using the local app.
+* **Blocking risk:** scans from GitHub run on shared cloud servers, which Google News, Bing and some
+  websites block more often than a home connection. The dashboard's *Discovery report* shows exactly
+  which sources worked. Running scans on your Mac and publishing from there avoids this.
+* **Free minutes:** GitHub Actions is free for public repositories. Private repositories get 2,000
+  free minutes a month, which is plenty for one daily scan. GitHub may start scheduled runs a few
+  minutes late, and disables schedules in repositories with no activity for 60 days (the daily
+  result commits count as activity).
+* **Storage:** scan history (seen URLs and position history) is kept between runs in GitHub's
+  Actions cache. If the cache expires (it is unused for 7 days or more), the next scan simply starts
+  fresh. Already-published dashboard data is kept, and the last 30 scans are shown.
+* **Interactive alternative:** if teammates want the full interactive app (start and stop buttons,
+  editing settings in the browser), `app.py` can be deployed free on Streamlit Community Cloud.
+  Settings and history there are lost whenever the app restarts, and the same cloud-blocking caveat
+  applies.
+
+---
+
 ## 9. Discovery sources: evaluation and limits
 
 | Source | Cost / account | Status | Limits |
@@ -379,7 +446,10 @@ Defaults live in `config.yaml`, and your changes from the app are saved to `data
 ## 12. Project structure
 
 ```
-app.py                   Streamlit web interface
+app.py                   Streamlit web interface (local)
+site/                    static team dashboard (deployed to Vercel)
+.github/workflows/       daily-scan.yml: scheduled scans on GitHub Actions
+vercel.json, .vercelignore  deploy only site/ to Vercel
 config.yaml              default settings (edit freely)
 requirements.txt
 scanner/
@@ -399,6 +469,7 @@ scanner/
   storage.py             SQLite: scans, queue, articles, positions, cache
   exporter.py            CSV exports
   scheduler.py           macOS launchd daily job
+  dashboard.py           publishes results as JSON for the dashboard
   llm_review.py          optional Ollama notes
 tests/                   offline tests with saved HTML/RSS/sitemap fixtures
 scripts/                 start_app.sh, run_scan.sh

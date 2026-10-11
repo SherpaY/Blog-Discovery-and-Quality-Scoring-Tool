@@ -60,21 +60,6 @@ def mini_web() -> FakeSession:
     return s
 
 
-@pytest.fixture
-def scan_config(base_config):
-    cfg = base_config
-    cfg["keywords"] = ["technical seo", "content marketing"]
-    cfg["competitor_domains"] = ["goodblog.com"]
-    cfg["discovery"].update({
-        "window_hours": 168, "feeds": [], "sitemaps": [], "max_urls": 50, "max_urls_per_domain": 25,
-        "filter_by_keywords": True, "reprocess_seen_urls": False, "max_search_queries": 1,
-        "methods": {"rss": True, "sitemap": True, "seed_domains": True, "search": True},
-        "search_sources": {"google_news_rss": True},
-    })
-    cfg["topics"]["synonyms_file"] = None
-    return cfg
-
-
 def read_csv(path):
     with open(path, encoding="utf-8-sig") as fh:
         return list(csv.DictReader(fh))

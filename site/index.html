@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Blog Quality Scanner</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='7' cy='7' r='5' fill='none' stroke='%232563eb' stroke-width='2'/%3E%3Cpath d='M11 11l4 4' stroke='%232563eb' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-inner">
+    <div>
+      <h1>Blog Quality Scanner</h1>
+      <p class="muted" id="subtitle">Recent articles for your keywords, with date checks and explainable quality scores.</p>
+    </div>
+    <label class="scan-pick">Scan
+      <select id="scanSelect" aria-label="Choose scan"></select>
+    </label>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="empty" class="card empty" hidden>
+    <h2>No scan results yet</h2>
+    <p>Results appear here after a scan is published. To run one:</p>
+    <ol>
+      <li>On GitHub, open <b>Actions → Daily blog scan → Run workflow</b> (or wait for the daily run).</li>
+      <li>When it finishes, the results are committed to <code>site/data/</code> and this page updates after Vercel redeploys.</li>
+    </ol>
+    <p>Or run <code>python -m scanner scan</code> then <code>python -m scanner publish</code> on your Mac and push the changes.</p>
+  </section>
+
+  <div id="content" hidden>
+    <section class="settings card" id="settings"></section>
+
+    <section class="metrics" id="metrics" aria-label="Scan summary"></section>
+
+    <details class="card report" id="report">
+      <summary>Discovery report: sources, queries and rejections</summary>
+      <div id="reportBody"></div>
+    </details>
+
+    <nav class="views" id="views" role="tablist" aria-label="Result views"></nav>
+
+    <section class="filters card" aria-label="Filters">
+      <label>Search <input type="search" id="fText" placeholder="title, URL, explanation"></label>
+      <label>Domain <select id="fDomain"><option value="">All domains</option></select></label>
+      <label>Keyword <select id="fKeyword"><option value="">All keywords</option></select></label>
+      <label>Score <span class="pair"><input type="number" id="fScoreMin" min="0" max="100" placeholder="0"><span>–</span><input type="number" id="fScoreMax" min="0" max="100" placeholder="100"></span></label>
+      <label>Words <span class="pair"><input type="number" id="fWordsMin" min="0" placeholder="min"><span>–</span><input type="number" id="fWordsMax" min="0" placeholder="max"></span></label>
+      <label>Published from <input type="date" id="fFrom"></label>
+      <label>to <input type="date" id="fTo"></label>
+      <label class="check"><input type="checkbox" id="fUnscored" checked> Include unscored / undated</label>
+      <button type="button" class="ghost" id="reset">Reset</button>
+    </section>
+
+    <div class="toolbar">
+      <span id="count" class="muted"></span>
+      <span class="spacer"></span>
+      <button type="button" id="dlShown">Download shown (CSV)</button>
+      <button type="button" id="dlFlagged">Download flagged only (CSV)</button>
+    </div>
+
+    <div class="table-wrap card">
+      <table id="table">
+        <thead><tr>
+          <th data-sort="quality_score" class="num">Score</th>
+          <th data-sort="quality_category">Category</th>
+          <th data-sort="title">Article</th>
+          <th data-sort="publication_date">Published</th>
+          <th data-sort="word_count" class="num">Words</th>
+          <th data-sort="article_type">Type</th>
+          <th data-sort="search_position_best" class="num" title="Position in Google/Bing News RSS results at scan time - not Google web ranking">News pos.</th>
+          <th>Why flagged</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <p class="muted small" id="footnote"></p>
+  </div>
+</main>
+
+<dialog id="detail" aria-labelledby="dTitle">
+  <form method="dialog" class="close-row"><button class="ghost" aria-label="Close">✕</button></form>
+  <div id="detailBody"></div>
+</dialog>
+
+<footer class="wrap muted small">
+  Free discovery sources never cover the whole web. Scores are screening signals for manual review, not verdicts;
+  nothing is labelled AI-generated. "News pos." is a position in Google/Bing News RSS results at scan time, not a Google web ranking.
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>

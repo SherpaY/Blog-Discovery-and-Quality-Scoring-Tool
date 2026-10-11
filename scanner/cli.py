@@ -119,6 +119,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("probe-search", help="check which free search sources work right now")
     p = sub.add_parser("expand", help="show generated query variations for keywords")
     p.add_argument("keywords", nargs="+")
+    p = sub.add_parser("publish", help="write results as JSON for the shareable dashboard (site/)")
+    p.add_argument("--keep", type=int, default=30, help="number of recent scans to publish")
+    p.add_argument("--slim-db", action="store_true", help="drop the HTTP cache from the database afterwards")
     p = sub.add_parser("schedule", help="manage the daily launchd job (macOS)")
     p.add_argument("action", choices=["install", "uninstall", "status", "show"])
     p.add_argument("--hour", type=int)
@@ -167,6 +170,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "expand":
         for q in expand_keywords(args.keywords, config.get("topics") or {}):
             print(f"{q.text:<45} {q.origin_label}")
+        return 0
+    if args.command == "publish":
+        from .dashboard import publish, slim_database
+
+        db = resolve_path(config, "data_dir") / "scanner.db"
+        index = publish(db, keep=args.keep)
+        print(f"Published {len(index['scans'])} scan(s) to site/data/. Commit and push to update the dashboard.")
+        if args.slim_db:
+            slim_database(db)
         return 0
     if args.command == "schedule":
         sched = config.get("schedule") or {}

@@ -1,0 +1,107 @@
+# Runs the blog scan on GitHub's servers (free for public repos; private repos
+# get 2,000 free minutes/month) and publishes results to site/data/, which the
+# Vercel dashboard serves. Edit keywords/domains in config.yaml on GitHub.
+name: Daily blog scan
+
+on:
+  schedule:
+    - cron: "17 6 * * *"   # every day at 06:17 UTC (GitHub may start it a little late)
+  workflow_dispatch:
+    inputs:
+      window_hours:
+        description: "Discovery window (hours)"
+        type: choice
+        options: ["168", "72", "48", "24"]
+        default: "168"
+      keywords:
+        description: "Keywords for this run only, comma-separated (blank = use config.yaml)"
+        required: false
+        default: ""
+      max_urls:
+        description: "Maximum URLs to process (blank = use config.yaml)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: blog-scan          # never two scans at once
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore scan history (SQLite)
+        uses: actions/cache/restore@v4
+        with:
+          path: data/scanner.db
+          key: scanner-db-${{ github.run_id }}
+          restore-keys: scanner-db-
+
+      - name: Run scan
+        env:
+          WINDOW: ${{ inputs.window_hours }}
+          KEYWORDS: ${{ inputs.keywords }}
+          MAX_URLS: ${{ inputs.max_urls }}
+        run: |
+          args=(--trigger github-actions)
+          if [ -n "${WINDOW}" ]; then args+=(--window "${WINDOW}"); fi
+          if [ -n "${MAX_URLS}" ]; then args+=(--max-urls "${MAX_URLS}"); fi
+          if [ -n "${KEYWORDS}" ]; then
+            IFS=',' read -ra kws <<< "${KEYWORDS}"
+            args+=(--keywords)
+            for k in "${kws[@]}"; do
+              k="${k#"${k%%[![:space:]]*}"}"; k="${k%"${k##*[![:space:]]}"}"   # trim spaces
+              if [ -n "$k" ]; then args+=("$k"); fi
+            done
+          fi
+          python -m scanner scan "${args[@]}"
+
+      - name: Publish dashboard data
+        if: always()
+        run: python -m scanner publish --slim-db
+
+      - name: Save scan history
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/scanner.db
+          key: scanner-db-${{ github.run_id }}
+
+      - name: Upload CSV files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: csv-exports-${{ github.run_id }}
+          path: |
+            output/
+            logs/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Commit results (triggers Vercel redeploy)
+        if: always()
+        run: |
+          git config user.name "blog-scan-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site/data
+          if git diff --cached --quiet; then
+            echo "No new results to commit."
+            exit 0
+          fi
+          git commit -m "Update dashboard data ($(date -u +%Y-%m-%dT%H:%MZ))"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
