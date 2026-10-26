@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-25T11:34:56Z",
+ "generated_at": "2026-10-26T13:03:00Z",
  "columns": [
   "scan_date",
   "title",
@@ -63,6 +63,54 @@
   "readability"
  ],
  "scans": [
+  {
+   "file": "scans/scan_202610261258_16.json",
+   "scan_id": 16,
+   "started_at": "2026-10-26T12:58:26Z",
+   "finished_at": "2026-10-26T13:02:59Z",
+   "status": "completed",
+   "trigger": "github-actions",
+   "window_hours": 168.0,
+   "results": {
+    "urls_processed": 32,
+    "extracted_ok": 5,
+    "confirmed_recent": 5,
+    "flagged_low_quality": 0,
+    "needs_date_review": 0,
+    "outside_window_rejected": 0,
+    "failed_extractions": 27,
+    "skipped_after_fetch": 0,
+    "flagged_any_date": 0
+   },
+   "settings": {
+    "keywords": [
+     "technical seo",
+     "content marketing"
+    ],
+    "competitor_domains": [
+     "searchengineland.com",
+     "www.searchenginejournal.com"
+    ],
+    "window_hours": 168,
+    "max_urls": 120,
+    "flag_threshold": 60,
+    "weights": {
+     "originality": 25,
+     "depth": 20,
+     "evidence": 20,
+     "usefulness": 20,
+     "readability": 15
+    },
+    "filter_by_keywords": true,
+    "search_sources": [
+     "gdelt_doc",
+     "bing_news_rss",
+     "medium_tag_feed",
+     "devto_tag_feed",
+     "hn_algolia"
+    ]
+   }
+  },
   {
    "file": "scans/scan_202610251124_15.json",
    "scan_id": 15,
