@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-18T15:40:46Z",
+ "generated_at": "2026-11-19T15:45:47Z",
  "columns": [
   "scan_date",
   "title",
@@ -63,6 +63,54 @@
   "readability"
  ],
  "scans": [
+  {
+   "file": "scans/scan_202611191542_40.json",
+   "scan_id": 40,
+   "started_at": "2026-11-19T15:42:33Z",
+   "finished_at": "2026-11-19T15:45:47Z",
+   "status": "completed",
+   "trigger": "github-actions",
+   "window_hours": 168.0,
+   "results": {
+    "urls_processed": 26,
+    "extracted_ok": 4,
+    "confirmed_recent": 4,
+    "flagged_low_quality": 0,
+    "needs_date_review": 0,
+    "outside_window_rejected": 0,
+    "failed_extractions": 22,
+    "skipped_after_fetch": 3,
+    "flagged_any_date": 0
+   },
+   "settings": {
+    "keywords": [
+     "technical seo",
+     "content marketing"
+    ],
+    "competitor_domains": [
+     "searchengineland.com",
+     "www.searchenginejournal.com"
+    ],
+    "window_hours": 168,
+    "max_urls": 120,
+    "flag_threshold": 60,
+    "weights": {
+     "originality": 25,
+     "depth": 20,
+     "evidence": 20,
+     "usefulness": 20,
+     "readability": 15
+    },
+    "filter_by_keywords": true,
+    "search_sources": [
+     "gdelt_doc",
+     "bing_news_rss",
+     "medium_tag_feed",
+     "devto_tag_feed",
+     "hn_algolia"
+    ]
+   }
+  },
   {
    "file": "scans/scan_202611181537_39.json",
    "scan_id": 39,
@@ -1421,54 +1469,6 @@
     "confirmed_recent": 5,
     "flagged_low_quality": 0,
     "needs_date_review": 0,
-    "outside_window_rejected": 0,
-    "failed_extractions": 27,
-    "skipped_after_fetch": 2,
-    "flagged_any_date": 0
-   },
-   "settings": {
-    "keywords": [
-     "technical seo",
-     "content marketing"
-    ],
-    "competitor_domains": [
-     "searchengineland.com",
-     "www.searchenginejournal.com"
-    ],
-    "window_hours": 168,
-    "max_urls": 120,
-    "flag_threshold": 60,
-    "weights": {
-     "originality": 25,
-     "depth": 20,
-     "evidence": 20,
-     "usefulness": 20,
-     "readability": 15
-    },
-    "filter_by_keywords": true,
-    "search_sources": [
-     "gdelt_doc",
-     "bing_news_rss",
-     "medium_tag_feed",
-     "devto_tag_feed",
-     "hn_algolia"
-    ]
-   }
-  },
-  {
-   "file": "scans/scan_202610201133_10.json",
-   "scan_id": 10,
-   "started_at": "2026-10-20T11:33:32Z",
-   "finished_at": "2026-10-20T11:37:06Z",
-   "status": "completed",
-   "trigger": "github-actions",
-   "window_hours": 168.0,
-   "results": {
-    "urls_processed": 32,
-    "extracted_ok": 5,
-    "confirmed_recent": 4,
-    "flagged_low_quality": 0,
-    "needs_date_review": 1,
     "outside_window_rejected": 0,
     "failed_extractions": 27,
     "skipped_after_fetch": 2,
